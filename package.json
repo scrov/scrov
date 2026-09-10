@@ -1,6 +1,5 @@
 {
 	"name": "scrov",
-	"name": "astro-distro",
 	"type": "module",
 	"version": "0.0.1",
 	"description": "Build a personal website, blog, or portfolio with Astro.",
