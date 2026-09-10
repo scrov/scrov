@@ -19,7 +19,6 @@
 		"@astrojs/mdx": "4.3.13",
 		"@astrojs/rss": "4.0.14",
 		"@astrojs/sitemap": "3.6.1",
-        	"typescript": "^5.9.3",
 		"@tailwindcss/vite": "^4.3.3",
 		"astro": "^7.1.6",
 		"tailwind-merge": "^3.6.0",
