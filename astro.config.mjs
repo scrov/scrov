@@ -8,14 +8,14 @@ import cloudflare from "@astrojs/cloudflare";
 
 // https://astro.build/config
 export default defineConfig({
-        vite: {
+//*        vite: {
                 plugins: [tailwindcss()],
                 resolve: {
                         alias: {
                                 "@": fileURLToPath(new URL("./src", import.meta.url)),
 			},
 		},
-	},
+	},*//
 	site: "https://scrov.app",
 	integrations: [mdx(), sitemap()],
 	adapter: cloudflare({
