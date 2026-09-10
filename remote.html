@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>Creating a remote control bookmarklet</title>
+<link rel="stylesheet" href="https://www.squarefree.com/squarefree.css" type="text/css">
+<style id="mdt-style">
+  :root {
+    --bg:    #1e1e1e; --bg1: #252526; --bg2: #2d2d2d; --bg3: #333;
+    --bdr:   rgba(255,255,255,.08);
+    --acc:   #569cd6; --grn: #4ec9b0; --yel: #ce9178; --red: #f44747;
+    --pur:   #c586c0; --org: #d7ba7d; --wht: #d4d4d4; --dim: #6a6a6a;
+    --info:  #9cdcfe; --warn-bg: rgba(255,193,7,.06); --err-bg: rgba(244,71,71,.07);
+    --mono:  'JetBrains Mono','Fira Code','Cascadia Code',Consolas,monospace;
+    --ui:    system-ui,-apple-system,sans-serif;
+    --tab-h: 30px; --tb-h: 28px;
+    /* Mobile touch targets */
+    --touch: 40px;
+    --touch-sm: 36px;
+  }
+  #mdt-root,#mdt-root * { box-sizing:border-box; }
+  #mdt-root {
+    position:fixed; bottom:0; left:0; right:0;
+    height:60vh; min-height:260px; max-height:94vh;
+    background:var(--bg); border-top:1px solid var(--bdr);
+    box-shadow:0 -2px 0 #569cd640, 0 -20px 60px rgba(0,0,0,.9);
+    font-family:var(--mono); font-size:13px; color:var(--wht);
+    display:flex; flex-direction:column; z-index:2147483646;
+    overflow:hidden; transform:translateY(100%);
+    transition:transform .2s cubic-bezier(.4,0,.2,1);
+    /* Firefox Mobile: avoid toolbar overlap */
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
+  #mdt-root.open { transform:translateY(0); }
+
+  /* ── resize handle ── */
+  #mdt-handle {
+    height:8px; background:var(--bg1); cursor:ns-resize; flex-shrink:0;
+    touch-action:none; border-bottom:1px solid var(--bdr);
+  }
+  #mdt-handle::before {
+    content:''; display:block; width:48px; height:3px; margin:2px auto;
+    background:var(--dim); border-radius:2px;
+  }
+
+  /* ── top tabs ── */
+  #mdt-topbar {
+    display:flex; align-items:stretch; flex-shrink:0;
+    background:var(--bg1); border-bottom:1px solid var(--bdr);
+    overflow-x:auto; scrollbar-width:none; height:38px;
+    -webkit-overflow-scrolling:touch;
+  }
+  #mdt-topbar::-webkit-scrollbar { display:none; }
+  .mdt-tab {
+    display:flex; align-items:center; gap:5px; padding:0 16px;
+    cursor:pointer; border:none; background:transparent;
+    color:var(--dim); font-family:var(--ui); font-size:13px;
+    white-space:nowrap; border-bottom:2px solid transparent;
+    transition:color .15s,border-color .15s; flex-shrink:0;
+    height:38px; -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-tab:hover { color:var(--wht); }
+  .mdt-tab.on { color:var(--acc); border-bottom-color:var(--acc); }
+  .mdt-tab svg { width:13px; height:13px; flex-shrink:0; }
+  .mdt-badge {
+    background:var(--red); color:#fff; border-radius:8px; padding:0 5px;
+    font-size:10px; font-weight:700; line-height:1.6; font-family:var(--ui);
+    min-width:15px; text-align:center;
+  }
+  #mdt-closebtn {
+    margin-left:auto; padding:0 16px; background:transparent; border:none;
+    cursor:pointer; color:var(--dim); font-size:16px; line-height:38px;
+    flex-shrink:0; transition:color .15s; -webkit-tap-highlight-color:transparent;
+  }
+  #mdt-closebtn:hover { color:var(--red); }
+
+  /* ── panels container ── */
+  #mdt-panels { flex:1; overflow:hidden; display:flex; flex-direction:column; min-height:0; }
+  .mdt-panel { display:none; flex:1; flex-direction:column; overflow:hidden; min-height:0; }
+  .mdt-panel.on { display:flex; }
+
+  /* ── toolbar row ── */
+  .mdt-toolbar {
+    display:flex; align-items:center; gap:4px; padding:3px 8px;
+    background:var(--bg1); border-bottom:1px solid var(--bdr);
+    flex-shrink:0; flex-wrap:wrap; min-height:var(--tb-h);
+  }
+  .mdt-tbinput {
+    flex:1; min-width:80px; background:var(--bg2); border:1px solid var(--bdr);
+    border-radius:3px; color:var(--wht); padding:2px 8px; font-size:12px;
+    font-family:var(--mono); outline:none; height:28px;
+    -webkit-appearance:none;
+  }
+  .mdt-tbinput:focus { border-color:var(--acc); }
+  .mdt-tbinput::placeholder { color:var(--dim); }
+  .mdt-tbtn {
+    background:transparent; border:1px solid transparent; border-radius:3px;
+    color:var(--dim); cursor:pointer; padding:2px 6px; display:flex;
+    align-items:center; justify-content:center;
+    height:28px; min-width:28px;
+    transition:color .15s,border-color .15s,background .15s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-tbtn:hover { color:var(--wht); border-color:var(--bdr); background:var(--bg3); }
+  .mdt-tbtn.on { color:var(--acc); border-color:var(--acc); }
+  .mdt-tbtn svg { width:13px; height:13px; }
+  .mdt-sep { width:1px; height:16px; background:var(--bdr); flex-shrink:0; margin:0 2px; }
+
+  /* ── filter chips ── */
+  .mdt-chip {
+    padding:1px 8px; border-radius:2px; cursor:pointer; border:1px solid transparent;
+    background:transparent; color:var(--dim); font-size:11px; font-family:var(--ui);
+    transition:all .15s; height:26px; display:flex; align-items:center;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-chip:hover { color:var(--wht); }
+  .mdt-chip.on { color:var(--wht); border-color:var(--bdr); background:var(--bg3); }
+  .mdt-chip.error { color:var(--red) !important; }
+  .mdt-chip.warn  { color:var(--yel) !important; }
+  .mdt-chip.info  { color:var(--info) !important; }
+
+  /* ══════ CONSOLE PANEL ══════ */
+  #mdt-con-outer { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
+
+  /* Settings bar (collapsible, hidden by default) */
+  #mdt-con-settings {
+    display:none; flex-wrap:wrap; gap:0; padding:6px 12px;
+    background:var(--bg1); border-bottom:1px solid var(--bdr); flex-shrink:0;
+  }
+  #mdt-con-settings.open { display:flex; }
+  .mdt-con-ck {
+    display:flex; align-items:center; gap:5px; padding:3px 10px 3px 0;
+    font-size:11px; font-family:var(--ui); color:var(--wht); cursor:pointer;
+    white-space:nowrap; min-width:100%;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-con-ck input[type=checkbox] { accent-color:var(--acc); width:12px; height:12px; flex-shrink:0; cursor:pointer; }
+
+  /* Main toolbar */
+  #mdt-con-toolbar {
+    display:flex; align-items:center; gap:4px; padding:2px 6px;
+    background:var(--bg1); border-bottom:1px solid var(--bdr);
+    flex-shrink:0; flex-wrap:nowrap; height:28px; overflow:hidden;
+  }
+  .mdt-con-tbtn {
+    background:transparent; border:none; cursor:pointer; padding:2px 4px;
+    color:var(--dim); border-radius:3px; display:flex; align-items:center;
+    justify-content:center; height:22px; min-width:22px; flex-shrink:0;
+    transition:color .12s,background .12s; -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-con-tbtn:hover { color:var(--wht); background:rgba(255,255,255,.08); }
+  .mdt-con-tbtn.on  { color:var(--acc); }
+  .mdt-con-tbtn svg { width:13px; height:13px; }
+  .mdt-con-sep { width:1px; height:16px; background:var(--bdr); flex-shrink:0; margin:0 2px; }
+  /* Filter input */
+  #mdt-con-filter {
+    flex:1; min-width:60px; background:var(--bg2); border:1px solid var(--bdr);
+    border-radius:3px; color:var(--wht); padding:1px 8px 1px 24px;
+    font-size:11px; font-family:var(--ui); outline:none; height:20px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236a6a6a' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:6px center;
+    -webkit-appearance:none;
+  }
+  #mdt-con-filter:focus { border-color:var(--acc); }
+  #mdt-con-filter::placeholder { color:var(--dim); }
+  /* Level dropdown */
+  #mdt-con-levels {
+    background:var(--bg2); border:1px solid var(--bdr); border-radius:3px;
+    color:var(--wht); font-size:11px; font-family:var(--ui); padding:1px 4px;
+    height:20px; outline:none; cursor:pointer; flex-shrink:0; -webkit-appearance:none;
+  }
+
+  /* Log area */
+  #mdt-logwrap {
+    flex:1; overflow-y:auto; overflow-x:hidden; scroll-behavior:smooth;
+    -webkit-overflow-scrolling:touch; background:var(--bg);
+  }
+  #mdt-logwrap::-webkit-scrollbar { width:6px; }
+  #mdt-logwrap::-webkit-scrollbar-thumb { background:var(--bg3); border-radius:3px; }
+
+  /* Log entry — icon | message | source */
+  .mdt-logentry {
+    display:flex; align-items:baseline; gap:6px;
+    padding:4px 8px;
+    border-bottom:1px solid rgba(255,255,255,.03);
+    line-height:1.6; word-break:break-word; cursor:default;
+    position:relative; min-height:28px;
+  }
+  .mdt-logentry:hover { background:rgba(255,255,255,.04); }
+  .mdt-logentry.warn  { background:var(--warn-bg); border-left:2px solid var(--yel); }
+  .mdt-logentry.error { background:var(--err-bg);  border-left:2px solid var(--red); }
+  .mdt-logentry.result { border-left:2px solid var(--grn); }
+  .mdt-logentry.info  { border-left:2px solid var(--info); }
+  /* Icon column */
+  .mdt-le-ic {
+    font-size:12px; flex-shrink:0; width:14px; text-align:center;
+    user-select:none; align-self:flex-start; padding-top:2px;
+  }
+  /* Message column */
+  .mdt-le-msg {
+    flex:1; white-space:pre-wrap; font-size:12px;
+    font-family:var(--mono); min-width:0; word-break:break-word;
+  }
+  .mdt-logentry.log    .mdt-le-msg { color:var(--wht); }
+  .mdt-logentry.info   .mdt-le-msg { color:var(--info); }
+  .mdt-logentry.warn   .mdt-le-msg { color:var(--yel); }
+  .mdt-logentry.error  .mdt-le-msg { color:var(--red); }
+  .mdt-logentry.result .mdt-le-msg { color:var(--grn); }
+  /* Source link (right side) */
+  .mdt-le-src {
+    font-size:10px; color:var(--acc); font-family:var(--ui);
+    white-space:nowrap; flex-shrink:0; align-self:flex-start;
+    padding-top:3px; cursor:pointer; opacity:.8;
+    text-decoration:underline; text-underline-offset:2px;
+    max-width:80px; overflow:hidden; text-overflow:ellipsis;
+  }
+  .mdt-le-src:hover { opacity:1; }
+  /* Stack trace */
+  .mdt-le-stk {
+    font-size:10px; color:var(--dim); white-space:pre-wrap;
+    border-left:2px solid rgba(255,255,255,.1); padding-left:8px;
+    margin-top:2px; font-family:var(--mono); width:100%;
+  }
+  /* Count badge */
+  .mdt-cnt {
+    background:var(--bg3); color:var(--wht); border-radius:8px;
+    padding:0 5px; font-size:10px; font-family:var(--ui);
+    margin-left:4px; flex-shrink:0; align-self:center; min-width:18px; text-align:center;
+  }
+  .mdt-logentry.error .mdt-cnt { background:var(--red); }
+  .mdt-logentry.warn  .mdt-cnt { background:var(--yel); color:#1e1e1e; }
+
+  /* REPL — Chrome-style inline input at bottom of log */
+  #mdt-replwrap {
+    display:flex; align-items:center; flex-shrink:0;
+    border-top:1px solid var(--bdr); background:var(--bg);
+    position:relative; min-height:42px;
+  }
+  /* The > prompt icon */
+  #mdt-replpfx {
+    padding:0 4px 0 6px; color:var(--dim); font-weight:400;
+    font-size:11px; flex-shrink:0; user-select:none;
+    font-family:var(--mono); align-self:stretch;
+    display:flex; align-items:center;
+  }
+  /* The textarea input — inline, no box */
+  #mdt-repl {
+    flex:1; background:transparent; border:none; color:var(--wht);
+    font-family:var(--mono); font-size:13px;
+    padding:10px 4px;
+    caret-color:var(--wht); resize:none;
+    min-height:42px; max-height:120px;
+    line-height:1.6; scrollbar-width:thin; outline:none; -webkit-appearance:none;
+  }
+  /* Run button — only visible on mobile */
+  #mdt-replrun {
+    display:flex;
+    padding:0 14px; background:transparent; border:none;
+    border-left:1px solid var(--bdr); color:var(--acc);
+    cursor:pointer; font-weight:700; font-size:12px;
+    min-height:42px;
+    flex-shrink:0; font-family:var(--ui); align-self:stretch;
+    align-items:center; gap:4px;
+    transition:background .12s; -webkit-tap-highlight-color:transparent;
+  }
+  #mdt-replrun:hover { background:rgba(86,156,214,.1); }
+
+  /* Autocomplete popup */
+  #mdt-ac {
+    position:absolute; bottom:100%; left:0; right:0;
+    background:#252526; border:1px solid var(--acc);
+    border-radius:3px; display:none; flex-direction:column;
+    max-height:220px; overflow-y:auto; z-index:2147483647;
+    scrollbar-width:thin; box-shadow:0 4px 20px rgba(0,0,0,.6);
+    -webkit-overflow-scrolling:touch;
+  }
+  .mdt-ac-group { padding:2px 8px; font-size:10px; color:var(--dim); font-family:var(--ui); border-top:1px solid var(--bdr); margin-top:2px; user-select:none; }
+  .mdt-ac-item {
+    padding:6px 12px; cursor:pointer; font-size:12px; color:var(--wht);
+    display:flex; align-items:center; gap:8px; white-space:nowrap;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-ac-item:hover, .mdt-ac-item.sel { background:var(--acc); color:#1e1e1e; }
+  .mdt-ac-item:hover .mdt-ac-type, .mdt-ac-item.sel .mdt-ac-type { color:#1e1e1e; }
+  .mdt-ac-name { flex:1; overflow:hidden; text-overflow:ellipsis; }
+  .mdt-ac-type { color:var(--dim); font-size:10px; font-family:var(--ui); flex-shrink:0; }
+
+  /* ══════ NETWORK PANEL ══════ */
+  #mdt-net-list { flex:1; overflow-y:auto; scrollbar-width:thin; -webkit-overflow-scrolling:touch; }
+  #mdt-net-list::-webkit-scrollbar { width:6px; }
+  #mdt-net-list::-webkit-scrollbar-thumb { background:var(--bg3); }
+  .mdt-net-hdr {
+    display:grid; grid-template-columns:24px 52px 60px 1fr 52px 54px 60px;
+    gap:0; padding:2px 8px; background:var(--bg2);
+    border-bottom:1px solid var(--bdr); font-size:10px;
+    color:var(--dim); font-family:var(--ui); flex-shrink:0;
+    text-transform:uppercase; letter-spacing:.04em; position:sticky; top:0; z-index:1;
+  }
+  .mdt-net-row {
+    display:grid; grid-template-columns:24px 52px 60px 1fr 52px 54px 60px;
+    gap:0; padding:5px 8px; border-bottom:1px solid rgba(255,255,255,.03);
+    cursor:pointer; align-items:center; font-size:12px; transition:background .1s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-net-row:hover { background:var(--bg2); }
+  .mdt-net-row.sel { background:#1a3a5c; }
+  .mdt-net-row.pend { opacity:.5; }
+  .mdt-net-row.err { background:rgba(244,71,71,.07); }
+  .mdt-net-row > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mdt-net-row .nc-ico { font-size:12px; }
+  .mdt-method { font-weight:700; font-size:11px; }
+  .mdt-m-GET { color:var(--grn); } .mdt-m-POST { color:var(--acc); }
+  .mdt-m-PUT { color:var(--org); } .mdt-m-DELETE { color:var(--red); }
+  .mdt-m-PATCH { color:var(--pur); } .mdt-m-X { color:var(--dim); }
+  .mdt-st-2 { color:var(--grn); } .mdt-st-3 { color:var(--acc); }
+  .mdt-st-4 { color:var(--yel); } .mdt-st-5 { color:var(--red); }
+  .mdt-st-x { color:var(--dim); }
+  .mdt-net-waterfall { background:var(--bg2); border-radius:2px; height:10px; position:relative; }
+  .mdt-net-bar { height:100%; border-radius:2px; background:var(--acc); position:absolute; opacity:.7; }
+  #mdt-net-detail {
+    display:none; flex-direction:column; border-top:2px solid var(--acc);
+    background:var(--bg); max-height:45%; overflow:hidden; flex-shrink:0;
+  }
+  #mdt-net-detail.on { display:flex; }
+  #mdt-net-detail-tabs {
+    display:flex; background:var(--bg1); border-bottom:1px solid var(--bdr); flex-shrink:0;
+  }
+  .mdt-ndt {
+    padding:4px 12px; cursor:pointer; border:none; background:transparent;
+    color:var(--dim); font-size:11px; font-family:var(--ui);
+    border-bottom:2px solid transparent; transition:all .15s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-ndt:hover { color:var(--wht); }
+  .mdt-ndt.on { color:var(--acc); border-bottom-color:var(--acc); }
+  #mdt-net-detail-body { flex:1; overflow-y:auto; padding:8px 12px; font-size:12px; scrollbar-width:thin; -webkit-overflow-scrolling:touch; }
+  .mdt-drow { display:flex; gap:8px; padding:2px 0; border-bottom:1px solid rgba(255,255,255,.04); }
+  .mdt-dk { color:var(--dim); min-width:130px; flex-shrink:0; font-size:11px; font-family:var(--ui); }
+  .mdt-dv { color:var(--wht); word-break:break-all; }
+  .mdt-dsec { color:var(--acc); font-weight:700; padding:6px 0 3px; font-size:11px; font-family:var(--ui); text-transform:uppercase; letter-spacing:.06em; }
+  .mdt-hdr-name { color:var(--org); } .mdt-hdr-val { color:var(--wht); }
+
+  /* ══════ ELEMENTS / DOM PANEL ══════ */
+  #mdt-dom-outer { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
+  /* Desktop: tree | sidebar side by side. Mobile: tree on top, sidebar below */
+  #mdt-dom-split {
+    flex:1; display:flex; overflow:hidden; min-height:0;
+    flex-direction:column;
+  }
+
+  /* ── DOM Tree ── */
+  #mdt-dom-tree {
+    flex:1; overflow:auto; padding:2px 0; font-size:11px;
+    scrollbar-width:thin; -webkit-overflow-scrolling:touch;
+    background:var(--bg); line-height:1;
+    min-height:120px; /* ensure tree always visible on mobile */
+  }
+  #mdt-dom-tree::-webkit-scrollbar { width:6px; }
+  #mdt-dom-tree::-webkit-scrollbar-thumb { background:var(--bg3); border-radius:3px; }
+
+  /* Each DOM row — one line, compact */
+  .mdt-drow2 {
+    display:flex; align-items:center; height:16px;
+    padding-right:8px; cursor:pointer; white-space:pre;
+    font-size:11px; position:relative; flex-shrink:0;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-drow2:hover { background:rgba(255,255,255,.06); }
+  .mdt-drow2.sel  { background:#1a3a5c; }
+  /* Mini action button ⋮ shown on hover / always on touch */
+  .mdt-drow2 .mdt-dom-menubtn {
+    display:none; align-items:center; justify-content:center;
+    margin-left:auto; flex-shrink:0;
+    width:18px; height:16px; border-radius:3px;
+    background:transparent; border:none; cursor:pointer;
+    color:var(--dim); font-size:14px; line-height:1;
+    padding:0; transition:color .1s, background .1s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-drow2:hover .mdt-dom-menubtn { display:flex; }
+  .mdt-drow2.sel  .mdt-dom-menubtn { display:flex; color:rgba(255,255,255,.5); }
+  .mdt-dom-menubtn:hover { color:var(--wht) !important; background:rgba(255,255,255,.12); }
+  /* Always visible on touch screens */
+  @media (pointer:coarse) { .mdt-drow2 .mdt-dom-menubtn { display:flex; } }
+  /* Blue left bar on selected */
+  .mdt-drow2.sel::before {
+    content:''; position:absolute; left:0; top:0; bottom:0;
+    width:2px; background:var(--acc); pointer-events:none;
+  }
+  /* Closing tag row — same height */
+  .mdt-dclose {
+    display:flex; align-items:center; height:16px;
+    padding-right:8px; white-space:pre; font-size:11px;
+  }
+  /* Inline text rows */
+  .mdt-dtextrow {
+    display:flex; align-items:center; height:16px;
+    padding-right:8px; white-space:nowrap; font-size:11px;
+    cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-dtextrow:hover { background:rgba(255,255,255,.04); }
+
+  /* Toggle ▶/▼ — MUST have fixed width so tag starts at same x */
+  .mdt-dtog {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:10px; height:16px; flex-shrink:0; cursor:pointer;
+    color:var(--dim); font-size:8px; user-select:none;
+    margin-right:2px;
+  }
+  .mdt-dtog:hover { color:var(--wht); }
+  /* Placeholder for nodes without children — same width */
+  .mdt-dnotog { display:inline-block; width:10px; flex-shrink:0; margin-right:2px; }
+
+  /* Colors — DevTools palette */
+  .mdt-tag  { color:#569cd6; }            /* <tag> blue */
+  .mdt-an   { color:#9cdcfe; }            /* attr-name light-blue */
+  .mdt-av   { color:#ce9178; }            /* attr-value orange */
+  .mdt-txt  { color:var(--dim); font-style:italic; }  /* text node */
+  .mdt-cmt  { color:#6a9955; font-style:italic; }     /* comment */
+  .mdt-eq   { color:var(--wht); }                     /* = sign */
+
+  /* ── Styles Sidebar: RIGHT on desktop, BOTTOM on mobile ── */
+  #mdt-dom-side {
+    overflow:hidden; flex-shrink:0;
+    display:flex; flex-direction:column; background:var(--bg1);
+    transition:all .18s ease;
+    height:0;border-top:1px solid var(--bdr);width:100%;
+  }
+  #mdt-dom-side.on { height:52vh; overflow:hidden; }
+
+  /* Sidebar tab bar — Styles / Computed / Layout / Event Listeners */
+  #mdt-styles-tabs {
+    display:flex; flex-shrink:0; background:var(--bg1);
+    border-bottom:1px solid var(--bdr); overflow-x:auto; scrollbar-width:none;
+    height:28px;
+  }
+  #mdt-styles-tabs::-webkit-scrollbar { display:none; }
+  .mdt-stab {
+    padding:0 10px; font-size:11px; font-family:var(--ui); color:var(--dim);
+    cursor:pointer; border:none; background:transparent;
+    border-bottom:2px solid transparent; height:28px;
+    display:flex; align-items:center; white-space:nowrap;
+    transition:color .12s; flex-shrink:0;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-stab:hover { color:var(--wht); }
+  .mdt-stab.on { color:var(--wht); border-bottom-color:var(--acc); }
+
+  /* Filter row */
+  #mdt-styles-filter {
+    display:flex; align-items:center; gap:4px; padding:3px 6px;
+    border-bottom:1px solid var(--bdr); flex-shrink:0; background:var(--bg1);
+  }
+  #mdt-styles-filter input {
+    flex:1; background:var(--bg2); border:1px solid var(--bdr); border-radius:3px;
+    color:var(--wht); padding:1px 6px; font-size:11px; font-family:var(--ui);
+    outline:none; height:20px; -webkit-appearance:none;
+  }
+  #mdt-styles-filter input:focus { border-color:var(--acc); }
+  .mdt-sf-btn {
+    background:transparent; border:1px solid var(--bdr); border-radius:2px;
+    color:var(--dim); font-size:10px; padding:1px 5px; cursor:pointer;
+    font-family:var(--ui); transition:all .12s; height:20px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-sf-btn:hover { color:var(--wht); }
+  .mdt-sf-btn.on { color:var(--acc); border-color:var(--acc); background:rgba(86,156,214,.08); }
+
+  /* Styles scroll body */
+  #mdt-styles-body {
+    flex:1; overflow-y:auto; scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch; display:block;
+  }
+  #mdt-styles-body::-webkit-scrollbar { width:4px; }
+  #mdt-styles-body::-webkit-scrollbar-thumb { background:var(--bg3); }
+  #mdt-computed-body {
+    flex:1; overflow-y:auto; scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch; display:none; padding:4px 0;
+  }
+  #mdt-computed-body::-webkit-scrollbar { width:4px; }
+  #mdt-computed-body::-webkit-scrollbar-thumb { background:var(--bg3); }
+
+  /* Style block: "element.style { ... }" */
+  .mdt-style-block { border-bottom:1px solid var(--bdr); padding-bottom:4px; }
+  .mdt-style-selector {
+    padding:4px 8px 2px; font-size:11px; font-family:var(--mono);
+    color:var(--wht); cursor:default; user-select:text;
+  }
+  .mdt-style-selector-name { color:#dcdcaa; } /* selector in yellow */
+  .mdt-style-brace { color:var(--wht); }
+  .mdt-style-source {
+    float:right; color:var(--dim); font-size:10px; font-family:var(--ui);
+    font-style:normal; cursor:pointer;
+  }
+  .mdt-style-source:hover { color:var(--acc); text-decoration:underline; }
+  .mdt-style-closebrace { padding:2px 8px 4px 8px; font-size:11px; color:var(--wht); }
+
+  /* Individual rule line */
+  .mdt-style-rule {
+    display:flex; align-items:center; padding:0 4px 0 20px;
+    font-size:11px; min-height:15px; line-height:1.5;
+    font-family:var(--mono); gap:0;
+  }
+  .mdt-style-rule:hover { background:rgba(255,255,255,.04); }
+  .mdt-style-prop { color:#9cdcfe; flex-shrink:0; }  /* light blue for prop */
+  .mdt-style-colon { color:var(--wht); padding:0 1px 0 0; flex-shrink:0; }
+  .mdt-style-val { color:var(--wht); flex:1; word-break:break-word; }
+  .mdt-style-val.color-val { color:#ce9178; }
+  .mdt-style-semi { color:var(--wht); flex-shrink:0; }
+  .mdt-style-disabled { opacity:.4; text-decoration:line-through; }
+  /* Color swatch */
+  .mdt-cb {
+    display:inline-block; width:9px; height:9px;
+    border:1px solid rgba(255,255,255,.25); border-radius:1px;
+    margin-right:3px; vertical-align:middle; flex-shrink:0;
+  }
+
+  /* Computed panel rows */
+  .mdt-comp-row {
+    display:flex; align-items:baseline; gap:0; padding:1px 8px;
+    font-size:11px; min-height:15px; font-family:var(--mono);
+  }
+  .mdt-comp-row:hover { background:rgba(255,255,255,.04); }
+  .mdt-comp-prop { color:#9cdcfe; width:150px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; }
+  .mdt-comp-val { color:var(--wht); flex:1; word-break:break-word; }
+
+  /* ── BOTTOM: Breadcrumb ── */
+  #mdt-dom-breadcrumb {
+    display:flex; align-items:center; flex-shrink:0;
+    overflow-x:auto; scrollbar-width:none;
+    background:#111; border-top:1px solid var(--bdr);
+    padding:0 8px; height:20px; gap:0;
+    font-family:var(--mono); font-size:11px;
+    -webkit-overflow-scrolling:touch;
+  }
+  #mdt-dom-breadcrumb::-webkit-scrollbar { display:none; }
+  .mdt-bc-item {
+    display:inline-flex; align-items:center; gap:0;
+    white-space:nowrap; cursor:pointer; padding:0 3px;
+    height:20px; border-radius:2px; color:var(--dim);
+    transition:background .1s; -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-bc-item:hover { background:rgba(255,255,255,.08); color:var(--wht); }
+  .mdt-bc-item.active .mdt-bc-tag { color:var(--wht); }
+  .mdt-bc-tag { color:#569cd6; }
+  .mdt-bc-id  { color:var(--wht); }
+  .mdt-bc-cls { color:#9cdcfe; font-size:10px; }
+  .mdt-bc-sep { color:var(--dim); padding:0 1px; user-select:none; font-size:10px; }
+
+  /* ── Guide panel ── */
+  #mdt-guide-scroll {
+    flex:1; overflow-y:auto; padding:0; scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch; background:var(--bg);
+  }
+  #mdt-guide-scroll::-webkit-scrollbar { width:6px; }
+  #mdt-guide-scroll::-webkit-scrollbar-thumb { background:var(--bg3); }
+  /* Guide hero */
+  .mdt-guide-hero {
+    background:linear-gradient(135deg,#1a2744 0%,#0d1117 100%);
+    padding:20px 20px 16px; border-bottom:1px solid var(--bdr);
+  }
+  .mdt-guide-hero-title {
+    font-size:18px; font-weight:700; color:var(--wht);
+    font-family:var(--ui); margin-bottom:4px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .mdt-guide-hero-sub { font-size:12px; color:var(--dim); font-family:var(--ui); }
+  /* Step cards */
+  .mdt-guide-steps { padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+  .mdt-guide-step {
+    background:var(--bg1); border:1px solid var(--bdr); border-radius:6px;
+    overflow:hidden; cursor:pointer; transition:border-color .15s;
+  }
+  .mdt-guide-step:hover { border-color:rgba(86,156,214,.4); }
+  .mdt-guide-step.open { border-color:var(--acc); }
+  .mdt-guide-step-hdr {
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-guide-step-num {
+    width:24px; height:24px; border-radius:50%; background:var(--acc);
+    color:#1e1e1e; font-size:11px; font-weight:700; font-family:var(--ui);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .mdt-guide-step.done .mdt-guide-step-num { background:var(--grn); }
+  .mdt-guide-step-title { font-size:12px; font-weight:600; color:var(--wht); font-family:var(--ui); flex:1; }
+  .mdt-guide-step-tag {
+    font-size:10px; color:var(--dim); font-family:var(--ui); flex-shrink:0;
+    background:var(--bg3); border-radius:3px; padding:1px 6px;
+  }
+  .mdt-guide-step-tag.mobile { color:var(--org); background:rgba(215,186,125,.1); }
+  .mdt-guide-step-arrow { color:var(--dim); font-size:11px; flex-shrink:0; transition:transform .15s; }
+  .mdt-guide-step.open .mdt-guide-step-arrow { transform:rotate(90deg); }
+  /* Step body */
+  .mdt-guide-step-body {
+    display:none; padding:0 14px 12px; border-top:1px solid var(--bdr);
+    background:var(--bg);
+  }
+  .mdt-guide-step.open .mdt-guide-step-body { display:block; }
+  .mdt-guide-desc { font-size:11px; color:var(--dim); font-family:var(--ui); line-height:1.7; padding:10px 0 6px; }
+  /* Step visual demo */
+  .mdt-guide-demo {
+    background:var(--bg2); border-radius:4px; padding:10px 12px; margin:6px 0;
+    font-size:11px; font-family:var(--mono); color:var(--wht);
+    border-left:3px solid var(--acc); line-height:1.8;
+  }
+  .mdt-guide-demo.warn { border-color:var(--org); }
+  .mdt-guide-demo.green { border-color:var(--grn); }
+  /* Try it button */
+  .mdt-guide-try {
+    background:var(--acc); color:#1e1e1e; border:none; border-radius:4px;
+    padding:6px 14px; font-size:11px; font-weight:700; font-family:var(--ui);
+    cursor:pointer; margin-top:8px; -webkit-tap-highlight-color:transparent;
+    transition:opacity .15s; display:inline-flex; align-items:center; gap:6px;
+  }
+  .mdt-guide-try:hover { opacity:.85; }
+  .mdt-guide-tip {
+    display:flex; align-items:flex-start; gap:8px; padding:8px 12px;
+    background:rgba(86,156,214,.06); border-radius:4px; margin:6px 0;
+    font-size:11px; font-family:var(--ui); color:var(--wht); line-height:1.6;
+  }
+  .mdt-guide-tip-icon { font-size:14px; flex-shrink:0; }
+  /* Mobile tip banner */
+  .mdt-guide-mobile-banner {
+    background:rgba(215,186,125,.08); border:1px solid rgba(215,186,125,.2);
+    border-radius:4px; padding:10px 12px; margin:6px 0;
+    display:flex; align-items:flex-start; gap:8px;
+    font-size:11px; font-family:var(--ui); color:var(--org); line-height:1.6;
+  }
+  /* Progress bar */
+  .mdt-guide-progress { padding:0 14px 14px; }
+  .mdt-guide-prog-label { font-size:11px; color:var(--dim); font-family:var(--ui); margin-bottom:4px; }
+  .mdt-guide-prog-bar { height:4px; background:var(--bg3); border-radius:2px; overflow:hidden; }
+  .mdt-guide-prog-fill { height:100%; background:var(--acc); border-radius:2px; transition:width .4s ease; }
+  /* Pick button glow when active */
+  .mdt-pick-btn.on { color:var(--acc) !important; box-shadow:0 0 0 2px rgba(86,156,214,.3); }
+
+  /* ── Inspect cursor overlay ── */
+  #mdt-iov.on { cursor:crosshair; }
+  #mdt-pick-cursor {
+    position:fixed; pointer-events:none; z-index:2147483646; display:none;
+    width:24px; height:24px; transform:translate(-50%,-50%);
+  }
+  #mdt-pick-cursor.on { display:block; }
+  .mdt-pick-ring {
+    position:absolute; inset:0; border:2px solid #569cd6;
+    border-radius:50%; animation:mdt-pulse 1.2s ease-in-out infinite;
+  }
+  .mdt-pick-dot {
+    position:absolute; top:50%; left:50%;
+    width:4px; height:4px; background:#569cd6; border-radius:50%;
+    transform:translate(-50%,-50%);
+  }
+  @keyframes mdt-pulse {
+    0%,100% { transform:scale(1); opacity:1; }
+    50% { transform:scale(1.4); opacity:.5; }
+  }
+
+  /* ── Styles action buttons (copy/delete) — appear on hover ── */
+  .mdt-style-actions {
+    display:none; align-items:center; gap:2px;
+    margin-left:auto; flex-shrink:0; padding-left:6px;
+  }
+  .mdt-style-rule:hover .mdt-style-actions { display:flex; }
+  /* Always visible on touch devices */
+  @media (pointer:coarse) { .mdt-style-actions { display:flex; } }
+  .mdt-style-action-btn {
+    background:transparent; border:none; cursor:pointer; padding:1px 3px;
+    font-size:11px; color:var(--dim); border-radius:2px; line-height:1;
+    transition:color .1s,background .1s; -webkit-tap-highlight-color:transparent;
+    height:16px; display:flex; align-items:center;
+  }
+  .mdt-style-action-btn:hover { color:var(--wht); background:rgba(255,255,255,.08); }
+  /* Copy button in selector header */
+  .mdt-style-copy-btn {
+    background:transparent; border:none; cursor:pointer; padding:1px 4px;
+    font-size:11px; color:var(--dim); border-radius:2px;
+    transition:color .1s; -webkit-tap-highlight-color:transparent;
+    opacity:0; transition:opacity .15s;
+  }
+  .mdt-style-block:hover .mdt-style-copy-btn,
+  .mdt-style-selector:hover .mdt-style-copy-btn { opacity:1; }
+  @media (pointer:coarse) { .mdt-style-copy-btn { opacity:1; } }
+  .mdt-style-copy-btn:hover { color:var(--acc); }
+  /* Strike-through for disabled rules */
+  .mdt-style-rule.disabled .mdt-style-prop,
+  .mdt-style-rule.disabled .mdt-style-val { text-decoration:line-through; opacity:.45; }
+  /* Active add-property row */
+  .mdt-style-addrow-active { background:rgba(86,156,214,.04); border-left:2px solid var(--acc); }
+  /* ── Inline edit input (inside style rules) ── */
+  .mdt-style-editinput {
+    background:var(--bg); border:1px solid var(--acc); border-radius:2px;
+    color:var(--wht); font-size:11px; font-family:var(--mono);
+    padding:0 4px; outline:none; min-width:40px; height:16px;
+    vertical-align:baseline; line-height:1; -webkit-appearance:none;
+  }
+  .mdt-style-editinput:focus { box-shadow:0 0 0 1px var(--acc); }
+  /* Add property row */
+  .mdt-style-addprop {
+    padding:0 8px 2px 20px; font-size:11px; color:var(--dim);
+    font-family:var(--mono); cursor:pointer; font-style:italic;
+  }
+  .mdt-style-addprop:hover { color:var(--acc); }
+  /* Checkbox to disable rule */
+  .mdt-style-cb {
+    width:12px; height:12px; margin:0 2px 0 0; flex-shrink:0;
+    cursor:pointer; accent-color:var(--acc); vertical-align:middle;
+  }
+  /* Space span — keeps tag-attr separation */
+  .mdt-sp { white-space:pre; } /* preserves the space */
+  /* Context menu — shared by DOM tree and Source editor */
+  .mdt-ctx-menu { -webkit-user-select:none; user-select:none; }
+  .mdt-ctx-item { -webkit-tap-highlight-color:transparent; }
+  /* Source editor context menu specifics */
+  .mdt-src-ctx-sep { height:1px; background:var(--bdr); margin:3px 0; }
+  /* Legacy compat */
+  .mdt-propsec,.mdt-proprow,.mdt-propkey,.mdt-propval { display:none; }
+
+  /* ══════════════════════════════════════════════════════════════
+     SOURCES PANEL
+     LEFT: file navigator | CENTER: editor | RIGHT: debugger sidebar
+  ══════════════════════════════════════════════════════════════ */
+  #mdt-src-outer { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
+
+  /* Sub-tabs row: Page / Workspace / … */
+  #mdt-src-subtabs {
+    display:flex; align-items:center; background:var(--bg1);
+    border-bottom:1px solid var(--bdr); flex-shrink:0; padding:0 4px;
+    height:26px; gap:0;
+  }
+  .mdt-src-stab {
+    padding:0 10px; font-size:11px; font-family:var(--ui); color:var(--dim);
+    cursor:pointer; border:none; background:transparent;
+    border-bottom:2px solid transparent; height:26px;
+    display:flex; align-items:center; transition:color .15s,border-color .15s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-src-stab:hover { color:var(--wht); }
+  .mdt-src-stab.on { color:var(--wht); border-bottom-color:var(--acc); }
+  #mdt-src-stab-more {
+    margin-left:auto; padding:0 6px; color:var(--dim); cursor:pointer;
+    border:none; background:transparent; height:26px; display:flex; align-items:center;
+    font-size:14px; -webkit-tap-highlight-color:transparent;
+  }
+  /* Snippets panel */
+  #mdt-snippets-nav { display:flex; flex-direction:column; height:100%; }
+  #mdt-snippets-nav-hdr { display:flex; align-items:center; justify-content:space-between; padding:4px 8px; border-bottom:1px solid var(--bdr); flex-shrink:0; background:var(--bg2); min-height:26px; }
+  #mdt-snippets-nav-hdr span { font-size:10px; font-weight:600; color:var(--dim); font-family:var(--ui); text-transform:uppercase; letter-spacing:.06em; }
+  #mdt-snippets-new-btn { background:transparent; border:none; color:var(--acc); cursor:pointer; font-size:18px; line-height:1; padding:0 2px; -webkit-tap-highlight-color:transparent; }
+  #mdt-snippets-new-btn:hover { color:var(--wht); }
+  #mdt-snippets-list { flex:1; overflow-y:auto; scrollbar-width:thin; }
+  .mdt-snippet-item {
+    display:flex; align-items:center; gap:5px; padding:3px 8px;
+    cursor:pointer; font-size:12px; font-family:var(--ui); color:var(--wht);
+    min-height:30px; -webkit-tap-highlight-color:transparent;
+    position:relative; border-radius:2px;
+  }
+  .mdt-snippet-item:hover { background:rgba(255,255,255,.06); }
+  .mdt-snippet-item.active { background:#094771; }
+  .mdt-snippet-item .snip-icon { font-size:11px; flex-shrink:0; }
+  /* Name — click to rename inline */
+  .mdt-snippet-item .snip-name {
+    flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    cursor:text;
+  }
+  /* Inline rename input */
+  .mdt-snippet-item .snip-rename-inp {
+    flex:1; background:var(--bg); border:1px solid var(--acc); border-radius:2px;
+    color:var(--wht); font-size:12px; font-family:var(--ui); padding:1px 5px;
+    outline:none; min-width:0; -webkit-appearance:none;
+  }
+  /* Action buttons group — hidden until hover, always on touch */
+  .mdt-snip-actions {
+    display:none; align-items:center; gap:2px; flex-shrink:0;
+  }
+  .mdt-snippet-item:hover .mdt-snip-actions { display:flex; }
+  .mdt-snippet-item.active .mdt-snip-actions { display:flex; }
+  @media (pointer:coarse) { .mdt-snip-actions { display:flex; } }
+  /* Each action button */
+  .mdt-snip-act {
+    background:transparent; border:none; cursor:pointer; padding:2px 4px;
+    font-size:11px; border-radius:3px; color:var(--dim); line-height:1;
+    transition:color .1s, background .1s; -webkit-tap-highlight-color:transparent;
+    height:18px; display:flex; align-items:center; justify-content:center;
+  }
+  .mdt-snip-act:hover { color:var(--wht); background:rgba(255,255,255,.12); }
+  .mdt-snip-act.run  { color:var(--acc); }
+  .mdt-snip-act.del  { color:var(--red); }
+  .mdt-snip-act.rename { color:var(--org); }
+  .mdt-snip-run-btn { background:var(--grn); border:none; color:#1e1e1e; border-radius:3px; padding:2px 10px; font-size:11px; font-weight:700; font-family:var(--ui); cursor:pointer; display:flex; align-items:center; gap:4px; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+  .mdt-snip-run-btn:hover { opacity:.85; }
+
+  /* Snippet editor */
+  .mdt-snip-editor-wrap {
+    display:flex; flex:1; overflow:hidden; background:var(--bg);
+    min-height:0; position:relative;
+  }
+  /* Line numbers gutter */
+  .mdt-snip-gutter {
+    width:44px; flex-shrink:0; background:var(--bg1);
+    border-right:1px solid var(--bdr);
+    font-family:var(--mono); font-size:13px;
+    line-height:1.8;
+    color:var(--dim); text-align:right;
+    padding:10px 6px 10px 0;
+    overflow:hidden; box-sizing:border-box; user-select:none;
+    white-space:pre; pointer-events:none;
+  }
+  /* The highlighted preview layer — hidden, not used */
+  .mdt-snip-hl { display:none; }
+  /* The textarea — visible, full color, the ONLY input area */
+  .mdt-snip-ta {
+    flex:1; background:var(--bg); border:none; outline:none; resize:none;
+    font-family:var(--mono); font-size:14px;
+    line-height:1.8;
+    color:var(--wht); caret-color:var(--wht);
+    padding:10px 10px 10px 50px;
+    tab-size:2; box-sizing:border-box;
+    -webkit-appearance:none; scrollbar-width:thin; overflow:auto;
+    white-space:pre; min-height:0; width:100%;
+    /* Firefox Mobile: prevent zoom on focus */
+    font-size:max(14px, 16px);
+  }
+  .mdt-snip-ta::-webkit-scrollbar { width:6px; height:6px; }
+  .mdt-snip-ta::-webkit-scrollbar-thumb { background:var(--bg3); }
+
+  /* Three-column split */
+  #mdt-src-split {
+    flex:1; display:flex; overflow:hidden; min-height:0;
+    flex-direction:column;
+  }
+
+  /* File Navigator */
+  #mdt-src-nav {
+    overflow:auto; font-size:12px; scrollbar-width:thin;
+    background:var(--bg1); transition:all .18s ease;
+    -webkit-overflow-scrolling:touch;
+    width:100%;flex-shrink:0;border-bottom:1px solid var(--bdr);height:180px;
+  }
+  #mdt-src-nav.collapsed { height:0; overflow:hidden; border-bottom:none; }
+  #mdt-src-nav::-webkit-scrollbar { width:4px; }
+  #mdt-src-nav::-webkit-scrollbar-thumb { background:var(--bg3); }
+
+  /* Tree nodes */
+  .mdt-tree-node {
+    display:flex; align-items:center; gap:4px;
+    padding:2px 0; cursor:pointer; white-space:nowrap;
+    font-family:var(--ui); font-size:12px; color:var(--wht);
+    user-select:none; border-radius:2px; transition:background .1s;
+    min-height:28px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-tree-node:hover { background:rgba(255,255,255,.05); }
+  .mdt-tree-node.selected { background:#094771; color:#fff; }
+  .mdt-tree-indent { flex-shrink:0; }
+  .mdt-tree-arrow {
+    width:14px; flex-shrink:0; color:var(--dim); font-size:10px;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .15s;
+  }
+  .mdt-tree-arrow.open { transform:rotate(90deg); }
+  .mdt-tree-icon { font-size:12px; flex-shrink:0; }
+  .mdt-tree-label { overflow:hidden; text-overflow:ellipsis; flex:1; }
+  .mdt-tree-children { display:none; }
+  .mdt-tree-children.open { display:block; }
+
+  /* CENTER — Editor */
+  #mdt-src-editor-wrap {
+    flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0;
+    background:var(--bg);
+  }
+
+  /* File tabs bar — open files as tabs */
+  #mdt-src-filetabs {
+    display:flex; align-items:stretch; flex-shrink:0; overflow-x:auto;
+    background:#252526; border-bottom:1px solid var(--bdr); min-height:26px;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  }
+  #mdt-src-filetabs::-webkit-scrollbar { display:none; }
+  .mdt-filetab {
+    display:flex; align-items:center; gap:6px; padding:0 12px;
+    border-right:1px solid var(--bdr); cursor:pointer; font-size:12px;
+    font-family:var(--ui); color:var(--dim); white-space:nowrap;
+    background:transparent; border-bottom:1px solid transparent;
+    transition:color .15s,background .15s; min-height:26px; flex-shrink:0;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-filetab:hover { background:var(--bg2); color:var(--wht); }
+  .mdt-filetab.active { background:var(--bg); color:var(--wht); border-bottom-color:transparent; }
+  .mdt-filetab-icon { font-size:11px; }
+  .mdt-filetab-name { font-size:12px; }
+  .mdt-filetab-close {
+    width:14px; height:14px; border-radius:2px; display:flex; align-items:center;
+    justify-content:center; color:var(--dim); font-size:10px;
+    transition:color .15s,background .15s; cursor:pointer;
+  }
+  .mdt-filetab-close:hover { color:var(--wht); background:rgba(255,255,255,.1); }
+
+  /* Editor view with line numbers */
+  #mdt-src-editor { flex:1; overflow:auto; position:relative; -webkit-overflow-scrolling:touch; }
+  #mdt-src-code {
+    font-size:12px; line-height:1.6; white-space:pre;
+    overflow-x:auto; tab-size:2; min-height:100%;
+    display:flex; flex-direction:column;
+  }
+  #mdt-src-code-empty {
+    display:flex; align-items:center; justify-content:center;
+    height:100%; color:var(--dim); font-size:13px; font-family:var(--ui);
+    text-align:center; padding:20px; line-height:1.7;
+  }
+  .mdt-src-line {
+    display:flex; align-items:flex-start; min-height:22px;
+    cursor:pointer; transition:background .1s;
+  }
+  .mdt-src-line:hover { background:rgba(255,255,255,.03); }
+  .mdt-src-line.bp { background:rgba(244,71,71,.12); }
+  .mdt-src-line.bp .mdt-src-ln { color:var(--red); }
+  .mdt-src-ln {
+    width:40px; color:var(--dim); text-align:right; padding:0 8px 0 0;
+    flex-shrink:0; user-select:none; font-size:11px; line-height:22px;
+    border-right:1px solid var(--bdr); position:relative;
+  }
+  .mdt-src-ln .bp-dot {
+    position:absolute; left:4px; top:50%; transform:translateY(-50%);
+    width:8px; height:8px; border-radius:50%; background:var(--red); display:none;
+  }
+  .mdt-src-line.bp .bp-dot { display:block; }
+  .mdt-src-code-txt { flex:1; padding:0 12px; color:var(--wht); line-height:22px; }
+
+  /* Editor bottom bar */
+  #mdt-src-statusbar {
+    display:flex; align-items:center; justify-content:space-between;
+    background:#007acc; padding:0 12px; font-size:11px; font-family:var(--ui);
+    color:#fff; flex-shrink:0; height:20px; gap:12px;
+  }
+  #mdt-src-statusbar .sb-left { display:flex; align-items:center; gap:12px; }
+  #mdt-src-statusbar .sb-right { display:flex; align-items:center; gap:12px; color:rgba(255,255,255,.8); }
+  #mdt-src-prettybtn {
+    background:transparent; border:none; color:#fff; cursor:pointer;
+    font-family:var(--mono); font-size:12px; padding:0; display:flex; align-items:center; gap:4px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #mdt-src-prettybtn:hover { text-decoration:underline; }
+
+  /* RIGHT — Debugger Sidebar */
+  #mdt-src-dbg {
+    width:0; flex-shrink:0; overflow-y:auto; overflow-x:hidden;
+    border-left:1px solid var(--bdr); font-size:12px; scrollbar-width:thin;
+    background:var(--bg1); transition:width .2s;
+    -webkit-overflow-scrolling:touch;
+  }
+  #mdt-src-dbg.collapsed { width:0; border-left:none; }
+  #mdt-src-dbg::-webkit-scrollbar { width:4px; }
+  #mdt-src-dbg::-webkit-scrollbar-thumb { background:var(--bg3); }
+  
+  
+  /* ═══ FIX Firefox Mobile: layout Sources ═══ */
+  
+  /* Su mobile srcSplit è in column: il debugger diventa pannello in altezza */
+  #mdt-src-dbg {
+    width: 100% !important;
+    height: 0;
+    border-left: none !important;
+    border-top: 1px solid var(--bdr);
+    transition: height .2s ease;
+    flex-shrink: 0;
+  }
+  #mdt-src-dbg.collapsed {
+    height: 0 !important;
+    border-top: none;
+  }
+  #mdt-src-dbg:not(.collapsed) {
+    height: 40vh;
+  }
+  /* Editor non deve mai collassare a zero */
+  #mdt-src-editor-wrap {
+    min-height: 200px;
+    flex: 1 1 auto;
+  }
+  /* Nav file: stessa logica del debugger */
+  #mdt-src-nav.collapsed {
+    height: 0 !important;
+    border-bottom: none !important;
+    overflow: hidden !important;
+  }
+  #mdt-src-nav:not(.collapsed) {
+    height: 35vh;
+    flex-shrink: 0;
+  }
+  /* srcSplit deve poter calcolare bene le altezze dei figli */
+  #mdt-src-split {
+    min-height: 0;
+  }
+  
+  
+  /* ═══ FIX Firefox Mobile: Snippets ═══ */
+  
+  /* L'editor wrap deve avere min-height per non collassare i figli flex */
+  #mdt-src-editor-wrap {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* L'editor div interno deve poter crescere */
+  #mdt-src-editor {
+    flex: 1 1 auto;
+    min-height: 250px;
+    display: flex;
+    flex-direction: column;
+  }
+  /* srcCode (contenitore del wrap snippet) deve riempire l'editor */
+  #mdt-src-code {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Wrap dell'editor snippet */
+  .mdt-snip-editor-wrap {
+    flex: 1 1 auto;
+    min-height: 250px;
+    display: flex;
+  }
+  /* Textarea snippet */
+  .mdt-snip-ta {
+    flex: 1 1 auto;
+    min-height: 250px;
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+  /* Gutter line numbers visibile */
+  .mdt-snip-gutter {
+    flex-shrink: 0;
+  }
+  /* Lista snippet quando il nav fa da snippet panel */
+  #mdt-src-nav:not(.collapsed) #mdt-snippets-nav {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  #mdt-snippets-list {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Bottone + più grande e tap-friendly */
+  #mdt-snippets-new-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    -webkit-tap-highlight-color: rgba(86,156,214,.2);
+  }
+  
+
+  /* Debugger section */
+  .mdt-dbg-sec {
+    border-bottom:1px solid var(--bdr);
+  }
+  .mdt-dbg-sec-hdr {
+    display:flex; align-items:center; gap:6px; padding:5px 10px;
+    cursor:pointer; font-size:11px; font-family:var(--ui); color:var(--wht);
+    user-select:none; background:var(--bg1); -webkit-tap-highlight-color:transparent;
+    min-height:32px;
+  }
+  .mdt-dbg-sec-hdr:hover { background:var(--bg2); }
+  .mdt-dbg-arrow {
+    color:var(--dim); font-size:9px; width:12px; flex-shrink:0;
+    transition:transform .15s; display:flex; align-items:center;
+  }
+  .mdt-dbg-arrow.open { transform:rotate(90deg); }
+  .mdt-dbg-sec-title { font-weight:600; font-size:11px; color:var(--wht); flex:1; }
+  .mdt-dbg-sec-body { padding:4px 0; display:none; }
+  .mdt-dbg-sec-body.open { display:block; }
+
+  /* Pause controls */
+  #mdt-dbg-controls {
+    display:flex; align-items:center; gap:2px; padding:6px 8px;
+    border-bottom:1px solid var(--bdr); background:var(--bg2); flex-shrink:0;
+  }
+  .mdt-dbg-ctrl {
+    background:transparent; border:none; color:var(--dim); cursor:pointer;
+    padding:4px; border-radius:3px; display:flex; align-items:center; justify-content:center;
+    transition:color .15s,background .15s; -webkit-tap-highlight-color:transparent;
+    width:36px; height:36px;
+  }
+  .mdt-dbg-ctrl:hover { color:var(--wht); background:var(--bg3); }
+  .mdt-dbg-ctrl.active { color:var(--acc); }
+  .mdt-dbg-ctrl svg { width:14px; height:14px; }
+  #mdt-dbg-status { font-size:11px; font-family:var(--ui); color:var(--dim); padding:4px 10px; font-style:italic; }
+
+  /* Breakpoint item */
+  .mdt-dbg-bp-item {
+    display:flex; align-items:center; gap:6px; padding:3px 10px;
+    font-size:11px; font-family:var(--ui); cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    min-height:28px;
+  }
+  .mdt-dbg-bp-item:hover { background:rgba(255,255,255,.04); }
+  .mdt-dbg-bp-cb {
+    width:12px; height:12px; border:1px solid var(--dim); border-radius:2px;
+    flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .mdt-dbg-bp-cb.checked { background:var(--acc); border-color:var(--acc); }
+  .mdt-dbg-bp-cb.checked::after { content:"✓"; color:#fff; font-size:8px; }
+  .mdt-dbg-bp-label { color:var(--wht); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mdt-dbg-bp-loc { color:var(--dim); font-size:10px; margin-left:auto; flex-shrink:0; }
+
+  /* Empty state for debugger sections */
+  .mdt-dbg-empty { padding:4px 16px 8px; color:var(--dim); font-size:11px; font-style:italic; font-family:var(--ui); }
+
+  /* Watch expression */
+  .mdt-dbg-watch-add {
+    display:flex; align-items:center; gap:4px; padding:3px 10px;
+    cursor:pointer; color:var(--dim); font-size:11px; font-family:var(--ui);
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-dbg-watch-add:hover { color:var(--acc); }
+
+  /* Scope variables */
+  .mdt-dbg-scope-var {
+    display:flex; align-items:baseline; gap:6px; padding:2px 16px;
+    font-size:11px; min-height:24px;
+  }
+  .mdt-dbg-scope-key { color:var(--org); min-width:70px; flex-shrink:0; }
+  .mdt-dbg-scope-val { color:var(--wht); word-break:break-all; }
+
+  /* Mobile: toggle buttons for nav/dbg panels */
+  #mdt-src-mobile-bar {
+    display:flex;
+    align-items:center; gap:6px; padding:5px 10px;
+    background:var(--bg2); border-bottom:1px solid var(--bdr); flex-shrink:0;
+    overflow-x:auto; scrollbar-width:none;
+  }
+  #mdt-src-mobile-bar::-webkit-scrollbar { display:none; }
+  .mdt-src-mob-btn {
+    background:var(--bg3); border:1px solid var(--bdr); color:var(--dim);
+    border-radius:5px; padding:6px 12px; font-size:12px; font-family:var(--ui);
+    cursor:pointer; transition:all .15s; -webkit-tap-highlight-color:transparent;
+    white-space:nowrap; flex-shrink:0; display:flex; align-items:center; gap:4px;
+    min-height:32px;
+  }
+  .mdt-src-mob-btn.on { color:var(--acc); border-color:var(--acc); background:rgba(86,156,214,.12); }
+
+  /* Horizontal scrollbar for src editor */
+  #mdt-src-editor::-webkit-scrollbar { width:6px; height:6px; }
+  #mdt-src-editor::-webkit-scrollbar-thumb { background:var(--bg3); border-radius:3px; }
+  #mdt-src-editor::-webkit-scrollbar-corner { background:var(--bg); }
+
+  /* syntax */
+  .tok-kw { color:#569cd6; } .tok-str { color:#ce9178; } .tok-num { color:#b5cea8; }
+  .tok-cmt { color:#6a9955; font-style:italic; } .tok-fn { color:#dcdcaa; }
+  .tok-cls { color:#4ec9b0; } .tok-rx { color:#d16969; } .tok-op { color:#d4d4d4; }
+  .tok-prop { color:#9cdcfe; }
+
+  /* ══════ PERFORMANCE PANEL ══════ */
+  #mdt-perf-scroll { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:12px; scrollbar-width:thin; -webkit-overflow-scrolling:touch; }
+  .mdt-pcard { background:var(--bg1); border:1px solid var(--bdr); border-radius:4px; padding:10px 14px; }
+  .mdt-pcard h4 { margin:0 0 8px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); font-family:var(--ui); }
+  .mdt-pmrow { display:flex; justify-content:space-between; align-items:baseline; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.04); }
+  .mdt-pmrow:last-child { border-bottom:none; }
+  .mdt-pmk { color:var(--dim); font-size:11px; font-family:var(--ui); }
+  .mdt-pmv { font-size:12px; font-weight:600; }
+  .mdt-bar-track { height:6px; background:var(--bg2); border-radius:3px; overflow:hidden; margin-top:5px; }
+  .mdt-bar-fill { height:100%; border-radius:3px; background:var(--acc); transition:width .4s ease; }
+  .mdt-bar-fill.y { background:var(--yel); } .mdt-bar-fill.r { background:var(--red); }
+  .mdt-fps-big { font-size:42px; font-weight:900; color:var(--grn); line-height:1; letter-spacing:-2px; font-family:var(--mono); }
+  .mdt-vital { display:flex; align-items:center; gap:8px; padding:4px 0; }
+  .mdt-vital-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .mdt-vital-g { background:var(--grn); } .mdt-vital-y { background:var(--yel); } .mdt-vital-r { background:var(--red); }
+
+  /* ══════ APPLICATION PANEL ══════ */
+  #mdt-app-outer { flex:1; display:flex; flex-direction:row; overflow:hidden; min-height:0; }
+
+  /* LEFT — Tree navigator */
+  #mdt-app-nav {
+    width:0; flex-shrink:0; overflow-y:auto; overflow-x:hidden;
+    border-right:1px solid var(--bdr); background:var(--bg1);
+    scrollbar-width:thin; -webkit-overflow-scrolling:touch;
+    transition:width .2s;
+  }
+  #mdt-app-nav.mobile-open { width:180px; }
+  #mdt-app-nav::-webkit-scrollbar { width:4px; }
+  #mdt-app-nav::-webkit-scrollbar-thumb { background:var(--bg3); }
+
+  /* Nav section header (Storage, Background services…) */
+  .mdt-app-section-hdr {
+    padding:6px 10px 2px; font-size:10px; font-weight:600;
+    color:var(--dim); font-family:var(--ui); text-transform:uppercase;
+    letter-spacing:.06em; user-select:none; margin-top:4px;
+  }
+  /* Nav tree item */
+  .mdt-app-nav-item {
+    display:flex; align-items:center; gap:6px; padding:3px 8px 3px 16px;
+    cursor:pointer; font-size:11px; font-family:var(--ui); color:var(--wht);
+    border-radius:0; transition:background .1s; min-height:28px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-app-nav-item:hover { background:rgba(255,255,255,.05); }
+  .mdt-app-nav-item.sel { background:#094771; color:#fff; }
+  .mdt-app-nav-item .nav-icon { font-size:12px; flex-shrink:0; }
+  /* Sub-items (like cookie domains) */
+  .mdt-app-nav-item.sub { padding-left:28px; color:var(--dim); }
+  .mdt-app-nav-item.sub.sel { color:#fff; }
+
+  /* RIGHT — Detail panel */
+  #mdt-app-detail {
+    flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0;
+  }
+  /* Detail toolbar */
+  #mdt-app-toolbar {
+    display:flex; align-items:center; gap:4px; padding:3px 8px;
+    background:var(--bg1); border-bottom:1px solid var(--bdr); flex-shrink:0;
+    min-height:28px;
+  }
+  #mdt-app-filter {
+    flex:1; background:var(--bg2); border:1px solid var(--bdr); border-radius:3px;
+    color:var(--wht); padding:1px 8px; font-size:11px; font-family:var(--ui);
+    outline:none; height:20px; -webkit-appearance:none;
+  }
+  #mdt-app-filter:focus { border-color:var(--acc); }
+  #mdt-app-filter::placeholder { color:var(--dim); }
+  .mdt-app-tbtn {
+    background:transparent; border:1px solid transparent; border-radius:3px;
+    color:var(--dim); cursor:pointer; padding:2px 6px; height:22px;
+    display:flex; align-items:center; transition:all .12s;
+    font-size:11px; font-family:var(--ui);
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mdt-app-tbtn:hover { color:var(--wht); border-color:var(--bdr); background:var(--bg3); }
+  .mdt-app-tbtn.danger { color:var(--red); }
+  .mdt-app-tbtn svg { width:13px; height:13px; }
+
+  /* Table area */
+  #mdt-app-table-wrap {
+    flex:1; overflow:auto; scrollbar-width:thin; -webkit-overflow-scrolling:touch;
+  }
+  #mdt-app-table-wrap::-webkit-scrollbar { width:6px; height:6px; }
+  #mdt-app-table-wrap::-webkit-scrollbar-thumb { background:var(--bg3); border-radius:3px; }
+  .mdt-app-table {
+    width:100%; border-collapse:collapse; font-size:11px;
+    font-family:var(--mono); table-layout:auto;
+  }
+  .mdt-app-table th {
+    position:sticky; top:0; background:var(--bg2); text-align:left;
+    padding:3px 10px; color:var(--dim); font-size:10px; font-weight:600;
+    font-family:var(--ui); border-bottom:1px solid var(--bdr);
+    white-space:nowrap; user-select:none; z-index:1;
+  }
+  .mdt-app-table td {
+    padding:3px 10px; border-bottom:1px solid rgba(255,255,255,.03);
+    max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    cursor:default; color:var(--wht);
+  }
+  .mdt-app-table tr:hover td { background:rgba(255,255,255,.04); }
+  .mdt-app-table tr.sel td { background:#094771; }
+  /* Detail/preview pane at bottom */
+  #mdt-app-preview {
+    flex-shrink:0; border-top:1px solid var(--bdr); background:var(--bg1);
+    min-height:60px; max-height:30%; overflow:auto; padding:8px 12px;
+    font-size:11px; font-family:var(--mono); color:var(--wht);
+    scrollbar-width:thin;
+  }
+  #mdt-app-preview.hidden { display:none; }
+  .mdt-app-empty {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    height:100%; color:var(--dim); font-family:var(--ui); text-align:center; gap:6px;
+  }
+  .mdt-app-empty-icon { font-size:28px; opacity:.4; }
+  .mdt-app-empty-title { font-size:12px; font-weight:600; color:var(--wht); opacity:.7; }
+  .mdt-app-empty-sub { font-size:11px; }
+
+  /* Mobile toggle for nav */
+  #mdt-app-mob-toggle {
+    display:flex;
+    align-items:center; gap:6px; padding:4px 10px;
+    background:var(--bg2); border-bottom:1px solid var(--bdr);
+    font-size:11px; font-family:var(--ui); color:var(--dim);
+    cursor:pointer; -webkit-tap-highlight-color:transparent; flex-shrink:0;
+  }
+  #mdt-app-mob-toggle:hover { color:var(--wht); }
+
+  /* Legacy compat */
+  .mdt-scard,.mdt-scard-hdr,.mdt-sdel,.mdt-stable,.mdt-empty { display:none!important; }
+  #mdt-stor-scroll { display:none!important; }
+
+  /* ══════ UA PANEL ══════ */
+  #mdt-ua-scroll { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; scrollbar-width:thin; -webkit-overflow-scrolling:touch; }
+  .mdt-uarow { display:flex; align-items:flex-start; gap:10px; background:var(--bg1); border:1px solid var(--bdr); border-radius:4px; padding:8px 12px; }
+  .mdt-uaicon { font-size:16px; flex-shrink:0; width:22px; text-align:center; }
+  .mdt-ualbl { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); font-family:var(--ui); }
+  .mdt-uaval { font-size:12px; color:var(--wht); word-break:break-word; margin-top:1px; }
+
+  /* ══════ FLOAT BUTTON ══════ */
+  #mdt-fab {
+    position:fixed; z-index:2147483647; bottom:calc(14px + env(safe-area-inset-bottom, 0px)); right:14px;
+    width:46px; height:46px; border-radius:50%; border:none; cursor:pointer;
+    background:#1e1e1e; border:1px solid rgba(86,156,214,.4);
+    color:#569cd6; display:none; align-items:center; justify-content:center;
+    box-shadow:0 2px 12px rgba(0,0,0,.7); touch-action:manipulation;
+    transition:background .2s, transform .15s; -webkit-tap-highlight-color:transparent;
+  }
+  #mdt-fab:hover { background:#252526; transform:scale(1.08); }
+  #mdt-fab svg { width:22px; height:22px; }
+
+  /* ══════ INSPECT ══════ */
+  #mdt-iov { position:fixed; inset:0; z-index:2147483643; display:none; cursor:crosshair; }
+  #mdt-iov.on { display:block; }
+  #mdt-ihl { position:fixed; pointer-events:none; z-index:2147483644; border:1px dashed #569cd6; background:rgba(86,156,214,.08); display:none; }
+  #mdt-itip { position:fixed; pointer-events:none; z-index:2147483645; background:#1e1e1e; border:1px solid #569cd680; border-radius:4px; padding:4px 8px; font-size:11px; color:var(--wht); display:none; font-family:var(--mono); max-width:280px; }
+
+  /* Firefox Mobile: ensure keyboard doesn't overlap */
+  @supports (-moz-appearance:none) {
+    #mdt-root { bottom:0; }
+    #mdt-repl { font-size:16px; } /* Prevent iOS/FF zoom on input focus */
+  }
+
+  /* ═══ PERF: containment & reduced motion ═══
+     Limita il blast-radius di reflow/repaint sui pannelli principali.
+     Per dispositivi lenti questo riduce drasticamente il costo dello
+     scroll nei log e nella network list. */
+  #mdt-root { contain: layout style; }
+  .mdt-panel { contain: layout style; }
+  #mdt-logwrap, #mdt-net-list, #mdt-src-code {
+    contain: strict; content-visibility: auto;
+  }
+  .mdt-log, .mdt-net-row, .mdt-src-line {
+    contain: layout style;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 22px;
+  }
+
+  /* Rispetta prefers-reduced-motion: niente animazioni se l'utente
+     ha "reduce motion" attivo a sistema. */
+  @media (prefers-reduced-motion: reduce) {
+    #mdt-root, #mdt-fab, .mdt-tab, .mdt-tbtn, .mdt-chip,
+    #mdt-assistant, #mdt-assistant.idle, #mdt-assistant-bubble {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+  </style><style id="mdt-assistant-style">
+  #mdt-assistant {
+    position: absolute; right: 14px; bottom: 56px;
+    width: 44px; height: 52px; cursor: pointer; z-index: 2147483646;
+    transition: transform .18s cubic-bezier(.4,0,.2,1), opacity .18s;
+    -webkit-tap-highlight-color: transparent;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,.55));
+  }
+  #mdt-assistant:hover, #mdt-assistant:active { transform: translateY(-2px) scale(1.05); }
+  #mdt-assistant.hidden { display: none; }
+  #mdt-assistant svg { width: 100%; height: 100%; display: block; }
+  #mdt-assistant .body { fill: #9b59b6; stroke: #c586c0; stroke-width: 1.3; }
+  #mdt-assistant .eye-w { fill: #fff; }
+  #mdt-assistant .eye-p { fill: #1e1e1e; }
+  #mdt-assistant .smile { fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; }
+  #mdt-assistant .antenna { stroke: #c586c0; stroke-width: 1.6; stroke-linecap: round; fill: none; }
+  #mdt-assistant .antenna-dot { fill: #c586c0; }
+  @keyframes mdt-assistant-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+  #mdt-assistant.idle { animation: mdt-assistant-bob 2.4s ease-in-out infinite; }
+
+  #mdt-assistant-bubble {
+    position: absolute; right: 70px; bottom: 56px;
+    max-width: 260px; min-width: 180px;
+    background: #2d2d2d; color: #d4d4d4;
+    border: 1px solid rgba(255,255,255,.12); border-radius: 10px;
+    padding: 10px 12px 8px 12px; font-family: system-ui, -apple-system, sans-serif;
+    font-size: 12px; line-height: 1.45; z-index: 2147483646;
+    box-shadow: 0 8px 24px rgba(0,0,0,.7);
+    opacity: 0; transform: translateY(6px); pointer-events: none;
+    transition: opacity .2s, transform .2s;
+  }
+  #mdt-assistant-bubble.shown { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  #mdt-assistant-bubble::after {
+    content: ""; position: absolute; right: -8px; bottom: 12px;
+    border: 8px solid transparent; border-left-color: #2d2d2d; border-right: 0;
+  }
+  #mdt-assistant-bubble .row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 6px; margin-top: 6px;
+  }
+  #mdt-assistant-bubble .name {
+    font-size: 10px; font-weight: 700; color: #c586c0; letter-spacing: .5px;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  #mdt-assistant-bubble button {
+    background: transparent; border: 1px solid rgba(255,255,255,.16);
+    color: #d4d4d4; font-size: 11px; font-family: inherit;
+    border-radius: 4px; padding: 3px 9px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #mdt-assistant-bubble button:hover { background: rgba(255,255,255,.06); }
+  #mdt-assistant-bubble .danger { color: #f0a; border-color: rgba(240,0,170,.4); }
+
+  @media (max-width: 480px) {
+    #mdt-assistant { width: 52px; height: 60px; bottom: 70px; }
+    #mdt-assistant-bubble { right: 14px; bottom: 134px; max-width: calc(100vw - 28px); }
+    #mdt-assistant-bubble::after { right: 24px; bottom: -8px; border-top-color: #2d2d2d; border-bottom: 0; border-left-color: transparent; }
+  }
+  </style></head>
+
+<body data-mdt-orig-pad-bottom="" style="padding-bottom: calc(2594px);">
+
+<div style="text-align: center">
+<a href="./">Bookmarklets Home</a>
+| <a href="pagelinks.html">Links</a>
+| <a href="forms.html">Forms</a>
+| <a href="pagedata.html">Text and Data</a> 
+| <a href="zap.html">Zap</a> 
+| <a href="webdevel.html">Web Development</a> 
+| <a href="validation.html">Validation</a> 
+| <a href="misc.html">Misc</a> 
+</div>
+
+<hr>
+
+<script type="text/javascript">
+var ua = navigator.userAgent, d, s="";
+if (/Gecko\/200305(\d\d)/.exec(ua))
+{
+  day = parseInt(RegExp.$1, 10)
+  if (16 <= day && day < 22)
+  {
+    s = "<p class='ack'><b>You are using a version of Mozilla in which many bookmarklets do not work.<\/b>  Mozilla builds between May 16 and May 22 (including Mozilla Firebird 0.6, released May 16) suffer from bug 205989 and bug 206026.<br><br><b>Please upgrade<\/b> to one of the following:<br>"
+    s += "<a href='http://ftp.mozilla.org/pub/firebird/nightly/latest-trunk/'>A Mozilla Firebird nightly<\/a> (recommended)<br>";
+    s += "<a href='http://ftp.mozilla.org/pub/mozilla/nightly/latest-trunk/'>A Mozilla nightly<\/a><br>";
+    s += "<a href='http://www.mozilla.org/releases/'>Mozilla 1.4 RC1 or a later release<\/a><\/p>";
+    document.write(s);
+  }
+}
+</script>
+
+
+<h3>Creating a remote control bookmarklet</h3>
+
+<p>Goal: create a single bookmark you can store on your personal toolbar that allows you to access several bookmarklets.  This will allow you to quickly make several bookmarklets available while you temporarily use another computer or another browser.  It's also one way to keep a large number of bookmarklets on your personal toolbar, although creating folders on your personal toolbar is more efficient.</p>
+
+<p>As an approximation, I created a small page (<a href="remotePageLinks.html">remotePageLinks.html</a>) containing several bookmarklets as links, and put a &lt;base target="receiver"&gt; in the page.  Then, I wrote a bookmarklet that sets the name of its window to "receiver" and opens remotePageLinks.html in a new window.  Here's the bookmarklet:</p>
+
+<p><a class="bml" href="javascript:window.name = 'receiver'; window.open('http://www.squarefree.com/bookmarklets/remotePageLinks.html','','resizable=yes,width=223,height=337,left=508,top=122'); void 0">almost remote</a></p>
+
+<p>The problem with this remote is that only works on pages on www.squarefree.com, due to the <a href="http://www.mozilla.org/projects/security/components/same-origin.html">same-origin policy</a>.  If you try using it at another site, the remote will open, but you'll get a javascript error if you try to use any of the bookmarklets.  This makes sense: opening a page at another site in a new window should not allow scripts on that site to read customers' personal data from your site!</p>
+
+<p>To get around the security restriction, I created a script, <a href="remotePageLinks.js">remotePageLinks.js</a>, that contains the contents of remotePageLinks.html as a javascript string and document.writes that string when loaded.  Then I modified the bookmarklet to open a new window with &lt;script src="remotePageLinks.js"&gt;.  Here's the result:</p>
+
+<p><a class="bml" href="javascript:(function(){ window.name = 'receiver'; var remoteWin=window.open('','','resizable=yes,width=223,height=337,left=508,top=122'); remoteWin.document.write('&lt;html&gt;&lt;body&gt;'); remoteWin.document.write('&lt;script src=&quot;http://www.squarefree.com/bookmarklets/remotePageLinks.js&quot;&gt;&lt;'+'/script&gt;'); })();">remote</a></p>
+
+<p>Note that because the script is loaded from my site every time you use the remote bookmarklet, it's not very fast.</p>
+
+<p>Thanks to <a href="mailto:ds8@cec.wustl.edu">Daniel Schwartz</a> for the idea of storing several bookmarklets as one "remote control" bookmarklet.</p>
+
+<hr><p><i><a href="copyright.html">©</a> 2000-2007 <a href="http://www.squarefree.com/">Jesse Ruderman</a> (<a href="mailto:jruderman@gmail.com">jruderman@gmail.com</a>). Feedback is welcome.<br>
+Last modified October 28, 2001.</i></p>
+
+
+
+</body><div id="mdt-iov"></div><div id="mdt-ihl"></div><div id="mdt-itip"></div><div id="mdt-pick-cursor"><div class="mdt-pick-ring"></div><div class="mdt-pick-dot"></div><div class="mdt-pick-cross-h"></div><div class="mdt-pick-cross-v"></div></div><button id="mdt-fab" title="MobiDevTools" style="display: flex;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"></path><path d="M8 6l-6 6 6 6"></path></svg></button><div id="mdt-root" class="open"><div id="mdt-handle"></div><div id="mdt-topbar"><button class="mdt-tab" data-tab="elements"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 0-2-2z"></path><path d="M9 22V12h6v10"></path></svg> Elements</button><button class="mdt-tab" data-tab="console"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17L10 11 4 5"></path><path d="M12 19H20"></path></svg> Console<span class="mdt-badge" style="display: none;"></span></button><button class="mdt-tab on" data-tab="sources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"></path><path d="M14 3v5h5"></path></svg> Sources</button><button class="mdt-tab" data-tab="network"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><circle cx="12" cy="21" r="1"></circle></svg> Network<span class="mdt-badge" style="display: none;"></span></button><button class="mdt-tab" data-tab="perf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg> Performance</button><button class="mdt-tab" data-tab="storage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><path d="M6 6h.01M6 18h.01"></path></svg> Application</button><button class="mdt-tab" data-tab="ua"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M12 18h.01"></path></svg> Device</button><button class="mdt-tab" data-tab="guide" style="margin-left: auto; color: var(--org);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg> Guide</button><button id="mdt-closebtn">✕</button></div><div id="mdt-panels"><div class="mdt-panel" id="p-elements"><div id="mdt-dom-outer"><div class="mdt-toolbar"><input class="mdt-tbinput" type="text" placeholder="CSS selector or search…"><button class="mdt-tbtn mdt-pick-btn" title="Select element in page to inspect (⌘)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l6 18 3-7 7-3z"></path></svg></button><button class="mdt-tbtn" title="Refresh DOM"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></button></div><div id="mdt-dom-split"><div id="mdt-dom-tree"></div><div id="mdt-dom-side"><div id="mdt-styles-tabs"><button class="mdt-stab on" data-st="styles">Styles</button><button class="mdt-stab" data-st="computed">Computed</button><button class="mdt-stab" data-st="layout">Layout</button><button class="mdt-stab" data-st="listeners">Event Listeners</button></div><div id="mdt-styles-filter"><input placeholder="Filter"><button class="mdt-sf-btn" title="Toggle :hover state">:hov</button><button class="mdt-sf-btn" title="Toggle class editor">.cls</button></div><div id="mdt-styles-body"></div><div id="mdt-computed-body" style="display: none;"></div><div id="mdt-listeners-body" style="flex: 1 1 0%; overflow-y: auto; display: none; scrollbar-width: thin;"></div></div></div><div id="mdt-dom-breadcrumb"></div></div></div><div class="mdt-panel" id="p-console"><div id="mdt-con-outer"><div id="mdt-con-settings"><label class="mdt-con-ck"><input type="checkbox"> Hide network</label><label class="mdt-con-ck"><input type="checkbox"> Log XMLHttpRequests</label><label class="mdt-con-ck"><input type="checkbox"> Preserve log</label><label class="mdt-con-ck"><input type="checkbox"> Eager evaluation</label><label class="mdt-con-ck"><input type="checkbox"> Selected context only</label><label class="mdt-con-ck"><input type="checkbox"> Autocomplete from history</label><label class="mdt-con-ck"><input type="checkbox"> Group similar messages</label><label class="mdt-con-ck"><input type="checkbox"> Treat eval as user action</label><label class="mdt-con-ck"><input type="checkbox"> Show CORS errors</label><label class="mdt-con-ck"><input type="checkbox"> Show assistant</label></div><div id="mdt-con-toolbar"><button class="mdt-con-tbtn" title="Clear console (Ctrl+L)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button><button class="mdt-con-tbtn" title="Pause log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h4v16H6z"></path><path d="M14 4h4v16h-4z"></path></svg></button><div class="mdt-con-sep"></div><input id="mdt-con-filter" type="text" placeholder="Filter" autocorrect="off" autocapitalize="off" spellcheck="false"><select id="mdt-con-levels" title="Log levels"><option value="all">Default levels</option><option value="verbose">Verbose</option><option value="info">Info</option><option value="warn">Warnings</option><option value="error">Errors</option></select><div class="mdt-con-sep"></div><button class="mdt-con-tbtn" title="Console settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button><button class="mdt-con-tbtn" title="Export log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg></button></div><div id="mdt-logwrap"><div class="mdt-logentry info"><span class="mdt-le-ic" style="color: var(--info);">ℹ</span><div style="flex: 1 1 0%; min-width: 0px; display: flex; flex-direction: column;"><div class="mdt-le-msg">MobiDevTools v3.7 — Creating a remote control bookmarklet</div></div></div><div class="mdt-logentry info"><span class="mdt-le-ic" style="color: var(--info);">ℹ</span><div style="flex: 1 1 0%; min-width: 0px; display: flex; flex-direction: column;"><div class="mdt-le-msg">↳ https://www.squarefree.com/bookmarklets/remotecontrol.html</div></div></div><div class="mdt-logentry info"><span class="mdt-le-ic" style="color: var(--info);">ℹ</span><div style="flex: 1 1 0%; min-width: 0px; display: flex; flex-direction: column;"><div class="mdt-le-msg">🦊 Firefox Mobile detected — touch-optimized UI active</div></div></div></div><div id="mdt-replwrap"><div id="mdt-ac"></div><div id="mdt-replpfx">&gt;</div><textarea id="mdt-repl" rows="1" placeholder="" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea><button id="mdt-replrun">Run</button></div></div></div><div class="mdt-panel on" id="p-sources"><div id="mdt-src-outer"><div id="mdt-src-subtabs"><button class="mdt-src-stab on">Page</button><button class="mdt-src-stab">Snippets</button><button class="mdt-src-stab">Workspace</button><button id="mdt-src-stab-more">»</button></div><div id="mdt-src-mobile-bar"><button class="mdt-src-mob-btn">📁 Files</button><button class="mdt-src-mob-btn">📝 Snippets</button><button class="mdt-src-mob-btn">🐛 Debugger</button><button class="mdt-src-mob-btn">{ } Beautify</button></div><div id="mdt-src-split"><div id="mdt-src-nav" class="collapsed"><div class="mdt-tree-node" style="padding-left: 4px;"><div class="mdt-tree-arrow open">▶</div><div class="mdt-tree-icon" style="display: none;">▼</div><div class="mdt-tree-label">top</div></div><div class="mdt-tree-children open"><div class="mdt-tree-node" style="padding-left: 18px;"><div class="mdt-tree-arrow open">▶</div><div class="mdt-tree-icon" style="font-size: 11px;">☁</div><div class="mdt-tree-label">www.squarefree.com</div></div><div class="mdt-tree-children open"><div class="mdt-tree-node" style="padding-left: 32px;"><div class="mdt-tree-arrow open">▶</div><div class="mdt-tree-icon" style="font-size: 11px;">📁</div><div class="mdt-tree-label">bookmarklets</div></div><div class="mdt-tree-children open"><div class="mdt-tree-node" style="padding-left: 60px;"><div class="mdt-tree-icon" style="font-size: 11px;">🌐</div><div class="mdt-tree-label" title="https://www.squarefree.com/bookmarklets/remotecontrol.html">remotecontrol.html</div></div></div><div class="mdt-tree-node" style="padding-left: 46px;"><div class="mdt-tree-icon" style="font-size: 11px;">🎨</div><div class="mdt-tree-label" title="https://www.squarefree.com/squarefree.css">squarefree.css</div></div></div></div></div><div id="mdt-src-editor-wrap"><div id="mdt-src-filetabs"><div class="mdt-filetab active"><div class="mdt-filetab-icon">🌐</div><div class="mdt-filetab-name" title="https://www.squarefree.com/bookmarklets/remotecontrol.html">remotecontrol.html</div><div class="mdt-filetab-close">✕</div></div></div><div id="mdt-src-editor"><div id="mdt-src-code" style=""><div id="mdt-src-code-empty"><div><div style="font-size: 28px; margin-bottom: 12px;">📄</div><div style="color: var(--wht); margin-bottom: 6px;">Select a file to view its source</div><div style="font-size: 12px;">Scripts and stylesheets from this page appear in the file tree</div></div></div></div></div><div id="mdt-src-statusbar"><div class="sb-left"><button id="mdt-src-prettybtn">{ }</button></div><div class="sb-right"><span style="opacity: 0.7;">▶ Ctrl+Enter</span><span>Coverage: n/a</span></div></div></div><div id="mdt-src-dbg" class="collapsed"><div id="mdt-dbg-controls"><button class="mdt-dbg-ctrl" title="Pause/Resume"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h4v16H6z"></path><path d="M14 4h4v16h-4z"></path></svg></button><button class="mdt-dbg-ctrl" title="Step over"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M15 17l5-5-5-5"></path></svg></button><button class="mdt-dbg-ctrl" title="Step into"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M7 10l5-5 5 5"></path></svg></button><button class="mdt-dbg-ctrl" title="Step out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"></path><path d="M7 14l5 5 5-5"></path></svg></button><button class="mdt-dbg-ctrl" title="Deactivate breakpoints"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle></svg></button></div><div id="mdt-dbg-status">Not paused</div><div class="mdt-dbg-sec"><div class="mdt-dbg-sec-hdr"><div class="mdt-dbg-arrow open">▶</div><div class="mdt-dbg-sec-title">Watch</div></div><div class="mdt-dbg-sec-body open"><div class="mdt-dbg-watch-add"><span style="font-size: 14px; color: var(--acc); line-height: 1;">+</span><span> Add watch expression</span></div></div></div><div class="mdt-dbg-sec"><div class="mdt-dbg-sec-hdr"><div class="mdt-dbg-arrow open">▶</div><div class="mdt-dbg-sec-title">Breakpoints</div></div><div class="mdt-dbg-sec-body open"><div class="mdt-dbg-empty">No breakpoints</div></div></div><div class="mdt-dbg-sec"><div class="mdt-dbg-sec-hdr"><div class="mdt-dbg-arrow open">▶</div><div class="mdt-dbg-sec-title">Scope</div></div><div class="mdt-dbg-sec-body open"><div class="mdt-dbg-empty">Not paused</div></div></div><div class="mdt-dbg-sec"><div class="mdt-dbg-sec-hdr"><div class="mdt-dbg-arrow open">▶</div><div class="mdt-dbg-sec-title">Call Stack</div></div><div class="mdt-dbg-sec-body open"><div class="mdt-dbg-empty">Not paused</div></div></div><div class="mdt-dbg-sec"><div class="mdt-dbg-sec-hdr"><div class="mdt-dbg-arrow open">▶</div><div class="mdt-dbg-sec-title">XHR/fetch Breakpoints</div></div><div class="mdt-dbg-sec-body open"><div class="mdt-dbg-watch-add"><span style="font-size: 14px; color: var(--acc);">+</span><span> Add XHR breakpoint</span></div></div></div><div class="mdt-dbg-sec"><div class="mdt-dbg-sec-hdr"><div class="mdt-dbg-arrow open">▶</div><div class="mdt-dbg-sec-title">DOM Breakpoints</div></div><div class="mdt-dbg-sec-body open"><div class="mdt-dbg-empty">No breakpoints</div></div></div><div class="mdt-dbg-sec"><div class="mdt-dbg-sec-hdr"><div class="mdt-dbg-arrow open">▶</div><div class="mdt-dbg-sec-title">Global Listeners</div></div><div class="mdt-dbg-sec-body open"><div class="mdt-dbg-empty">—</div></div></div><div class="mdt-dbg-sec"><div class="mdt-dbg-sec-hdr"><div class="mdt-dbg-arrow open">▶</div><div class="mdt-dbg-sec-title">Event Listener Breakpoints</div></div><div class="mdt-dbg-sec-body open"><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Animation</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Canvas</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Clipboard</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Control</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">DOM Mutation</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Device</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Drag</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Geolocation</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Keyboard</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Load</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Media</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Mouse</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Pointer</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Script</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Storage</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Timer</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Touch</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">WebGL</div></div><div class="mdt-dbg-bp-item"><div class="mdt-dbg-bp-cb"></div><div class="mdt-dbg-bp-label">Worker</div></div></div></div><div class="mdt-dbg-sec"><div class="mdt-dbg-sec-hdr"><div class="mdt-dbg-arrow open">▶</div><div class="mdt-dbg-sec-title">CSP Violation Breakpoints</div></div><div class="mdt-dbg-sec-body open"><div class="mdt-dbg-empty">No CSP violations tracked</div></div></div></div></div></div></div><div class="mdt-panel" id="p-network"><div class="mdt-toolbar"><input class="mdt-tbinput" type="text" placeholder="Filter"><button class="mdt-chip on" data-t="all">All</button><button class="mdt-chip" data-t="xhr">XHR</button><button class="mdt-chip" data-t="fetch">Fetch</button><button class="mdt-chip" data-t="script">JS</button><button class="mdt-chip" data-t="css">CSS</button><button class="mdt-chip" data-t="img">Img</button><button class="mdt-chip" data-t="doc">Doc</button><button class="mdt-chip" data-t="other">Other</button><button class="mdt-tbtn" title="Clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button><button class="mdt-tbtn" title="Export HAR"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg></button></div><div class="mdt-net-hdr"><span></span><span>Method</span><span>Status</span><span>Name</span><span>Type</span><span>Size</span><span>Time</span></div><div id="mdt-net-list"></div><div id="mdt-net-detail"><div id="mdt-net-detail-tabs"><button class="mdt-ndt on" data-t="headers">Headers</button><button class="mdt-ndt" data-t="payload">Payload</button><button class="mdt-ndt" data-t="response">Response</button><button class="mdt-ndt" data-t="timing">Timing</button></div><div id="mdt-net-detail-body"></div></div></div><div class="mdt-panel" id="p-perf"><div id="mdt-perf-scroll"></div></div><div class="mdt-panel" id="p-storage"><div id="mdt-stor-scroll" style="display: none;"></div><div id="mdt-app-outer"><div id="mdt-app-mob-toggle"><span>☰</span><span> Storage</span></div><div id="mdt-app-nav"></div><div id="mdt-app-detail"><div id="mdt-app-toolbar"><input id="mdt-app-filter" placeholder="Filter"><button class="mdt-app-tbtn" title="Refresh">↻</button><button class="mdt-app-tbtn danger" title="Clear selected">🗑 Clear</button></div><div id="mdt-app-table-wrap"></div><div id="mdt-app-preview" class="hidden"></div></div></div></div><div class="mdt-panel" id="p-ua"><div id="mdt-ua-scroll"></div></div><div class="mdt-panel" id="p-guide"><div id="mdt-guide-scroll"></div></div></div><div id="mdt-assistant" title="Tap for a tip" class="idle"><svg viewBox="0 0 44 52"><path class="body" d="M 22 8 C 11 8 6 16 6 26 C 6 36 11 46 22 46 C 33 46 38 36 38 26 C 38 16 33 8 22 8 Z"></path><line class="antenna" x1="22" y1="8" x2="22" y2="2"></line><circle class="antenna-dot" cx="22" cy="2" r="2"></circle><circle class="eye-w" cx="16" cy="24" r="3.5"></circle><circle class="eye-p" cx="17" cy="24.5" r="1.5"></circle><circle class="eye-w" cx="28" cy="24" r="3.5"></circle><circle class="eye-p" cx="29" cy="24.5" r="1.5"></circle><path class="smile" d="M 15 33 Q 22 39 29 33"></path></svg></div><div id="mdt-assistant-bubble" class="shown"><div class="name">MobiDevTools assistant</div><div>Hi! I'm your assistant. You can hide me anytime with the button in the top-right. Happy debugging!</div><div class="row"><button class="danger">Don't show again</button><button>OK</button></div></div></div></html>
