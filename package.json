@@ -52,7 +52,5 @@
 		"deploy": "wrangler deploy",
 		"dev": "astro dev",
 		"preview": "astro build && wrangler dev",
-		"predev": "bun run sync",
-		"prebuild": "bun run sync",
 	},
 }
