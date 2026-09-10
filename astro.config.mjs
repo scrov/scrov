@@ -15,7 +15,7 @@ export default defineConfig({
                                 "@": fileURLToPath(new URL("./src", import.meta.url)),
 			},
 		},
-	},*//
+	},*/
 	site: "https://scrov.app",
 	integrations: [mdx(), sitemap()],
 	adapter: cloudflare({
