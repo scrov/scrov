@@ -249,7 +249,12 @@ function addTree(walker, destNode) {
 <script src="index.js"></script>
 <script src="conzole.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsonld/1.0.0/jsonld.min.js"></script>
-
+<script src="https://unpkg.com/source-map@0.7.3/dist/source-map.js"></script>
+<script>
+  sourceMap.SourceMapConsumer.initialize({
+    "lib/mappings.wasm": "https://unpkg.com/source-map@0.7.3/lib/mappings.wasm",
+  });
+</script>
 <script>
 import shell from 'shelljs';
 shell.echo('hello world');
