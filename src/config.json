@@ -736,9 +736,9 @@
       "email": "scrov@scrov.app",
       "inbox": [
         {
-          "from": "https://scrov.github.io",
+          "from": "scrov.github.io",
           "date": "10 Jan 2025",
-          "href": "https://github.com/scrov/scrov"
+          "href": "https://github.com/scrov/scrov/wiki"
         },
         {
           "from": "scrov@scrov.app",
