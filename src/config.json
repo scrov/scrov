@@ -11,22 +11,22 @@
     "theme_color": "#1793d1",
     "job_title": "hacker",
     "social": {
-      "github": "https://github.com/scrov/scrov"
+      "github": "https://github.com/scrov/scrov/wiki"
     },
     "twitter": "",
     "locale": "en",
     "type": "website",
     "default_theme": "android",
     "footer": {
-      "status": "session closed",
+      "status": "session hijacked",
       "errors": 0,
-      "warnings": 0,
-      "uptime": "5y"
+      "warnings": 1,
+      "uptime": "7y"
     }
   },
   "current": {
-    "slug": "debian",
-    "booted_at": "2026-08-20T10:00:00Z",
+    "slug": "fedora44",
+    "booted_at": "2026-08-28T10:00:00Z",
     "host": "devbox",
     "cpu": "AMD Ryzen 7 7700",
     "gpu": "AMD Radeon RX 7700 XT",
@@ -599,7 +599,7 @@
       "bio": [
         {
           "icon": "M",
-          "text": "Astro + Tailwind template for fastfetch-style portfolios"
+          "text": "Astro + Tailwi‎nd portfolio"
         },
         {
           "icon": "M",
@@ -652,18 +652,18 @@
       ]
     },
     "projects": {
-      "command": "ranger /home/astro/projects",
-      "root": "/home/astro",
+      "command": "ranger /home/scrov/projects",
+      "root": "/home/scrov",
       "projects": [
         {
           "name": "scrov",
-          "description": "Astro + Tailwind portfolio",
+          "description": "Astro + Tailwind wiki",
           "repo": "https://github.com/scrov/scrov",
           "stars": "★ 1",
           "updated": "updated today",
           "size": "—",
           "date": "Sep 10",
-          "url": "https://scrov.app"
+          "url": "https://github.com/scrov/scrov"
         }
       ]
     },
