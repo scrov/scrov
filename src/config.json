@@ -1,22 +1,22 @@
 {
   "site": {
-    "title": "scrov-distro",
-    "description": "Astro + Tailwind fastfetch-style portfolio template. TUI components, themeable systems, projects synced from GitHub via YAML.",
+    "title": "scrov",
+    "description": "localhost",
     "url": "https://scrov.app",
     "author": "scrov",
-    "handle_suffix": "distro",
+    "handle_suffix": "root",
     "image": "/og.png",
     "image_width": 1200,
     "image_height": 630,
     "theme_color": "#1793d1",
-    "job_title": "astro-distro template",
+    "job_title": "hacker",
     "social": {
-      "github": ""
+      "github": "https://github.com/scrov/scrov"
     },
     "twitter": "",
     "locale": "en",
     "type": "website",
-    "default_theme": "debian",
+    "default_theme": "android",
     "footer": {
       "status": "session closed",
       "errors": 0,
@@ -657,13 +657,13 @@
       "projects": [
         {
           "name": "scrov",
-          "description": "Astro + Tailwind fastfetch-style portfolio",
-          "repo": "github.com/scrov/scrov",
+          "description": "Astro + Tailwind portfolio",
+          "repo": "https://github.com/scrov/scrov",
           "stars": "★ 1",
           "updated": "updated today",
           "size": "—",
           "date": "Sep 10",
-          "url": "https://github.com/scrov/scrov"
+          "url": "https://scrov.app"
         }
       ]
     },
@@ -675,7 +675,7 @@
           {
             "label": "editor",
             "percent": 100,
-            "detail": "zed / vscode"
+            "detail": "neovim / vscode"
           },
           {
             "label": "terminal",
@@ -685,7 +685,7 @@
           {
             "label": "browser",
             "percent": 20,
-            "detail": "firefox / brave"
+            "detail": "firefox nightly"
           },
           {
             "label": "notes",
@@ -697,7 +697,7 @@
             "label": "music",
             "percent": 10,
             "detail": "navidrome",
-            "note": "(lastfm scrobbling)"
+            "note": "(hugo tsr)"
           },
           {
             "label": "theme",
@@ -732,23 +732,23 @@
       }
     },
     "contact": {
-      "command": "mutt -f scrov72@gmail.com",
-      "email": "scrov72@gmail.com",
+      "command": "mutt -f scrov@scrov.app",
+      "email": "scrov@scrov.app",
       "inbox": [
         {
-          "from": "github.com",
-          "date": "15 Aug 2024",
-          "href": "https://github.com"
+          "from": "https://scrov.github.io",
+          "date": "10 Jan 2025",
+          "href": "https://github.com/scrov/scrov"
         },
         {
-          "from": "hello@example.com",
-          "date": "10 Jan 2025",
-          "href": "mailto:hello@example.com"
+          "from": "scrov@scrov.app",
+          "date": "10 Aug 2025",
+          "href": "mailto:scrov@scrov.app"
         },
         {
-          "from": "example.com",
-          "date": "10 Jan 2025",
-          "href": "https://example.com"
+          "from": "‏scrov.app",
+          "date": "22 Sep 2026",
+          "href": "https://scrov.app"
         }
       ],
       "hints": [
