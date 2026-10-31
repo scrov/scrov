@@ -1,0 +1,44 @@
+name: Bug Report
+description: Report a bug or issue in the portfolio
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      content: Thanks for taking the time to report a bug.
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: When I view the site or run `bun run check`...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction Steps
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Open https://scrov.app or clone repository
+        2. Run `bun run ...`
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Environment
+      description: Operating system, browser, Node/Bun version.
+      placeholder: |
+        - Bun: 1.3.x
+        - Astro: 5.x
+        - OS: Linux / macOS / Windows
+  - type: dropdown
+    attributes:
+      label: Component
+      description: Which area is affected?
+      options:
+        - CI / GitHub Actions
+        - Sync script
+        - Distro / Terminal Theme
+        - UI / Layout / Pages
+        - Cloudflare Deployment
+        - Other

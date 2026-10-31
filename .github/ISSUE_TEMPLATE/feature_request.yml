@@ -1,0 +1,32 @@
+name: Feature Request
+description: Suggest an enhancement or new feature
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      content: Share your ideas or suggestions for scrov.
+  - type: textarea
+    attributes:
+      label: Summary
+      description: What feature or enhancement are you proposing?
+      placeholder: Add support for custom distro themes or new CLI integrations...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Motivation / Use Case
+      description: Why would this be beneficial?
+      placeholder: It allows developers to...
+  - type: textarea
+    attributes:
+      label: Proposed Implementation Details
+      description: Any specific ideas on how to implement this?
+  - type: dropdown
+    attributes:
+      label: Scope
+      description: How large is this change?
+      options:
+        - Small (configuration / style tweak)
+        - Medium (new theme, component, or data entry)
+        - Large (architectural change, new feature)

@@ -1,0 +1,38 @@
+[shell_alias]
+ll = "ls -la"
+gs = "git status"
+build = "bun run build"
+dev = "bun run dev"
+dc = "docker compose -f docker-compose.dev.yml"
+tf = "terraform -chdir=./infrastructure"
+
+[tools]
+node = "24"
+
+[env]
+NODE_ENV = { default = "development" }
+
+[tasks.install]
+description = "Install the locked npm dependency tree"
+alias = "i"
+run = "npm ci"
+
+[tasks.start]
+description = "Start the development server"
+alias = "s"
+run = "npm run start"
+
+[tasks.lint]
+description = "Run the project's lint script"
+alias = "l"
+run = "npm run lint"
+
+[tasks.test]
+description = "Run the project's tests"
+alias = "t"
+run = "npm test"
+
+[tasks.build]
+description = "Build the project"
+alias = "b"
+run = "npm run build"

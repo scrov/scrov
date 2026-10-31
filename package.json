@@ -21,11 +21,14 @@
 		"@mcp-b/global": "^6.0.3",
 		"@mcp-b/smart-dom-reader": "^6.0.3",
 		"@mcp-b/smart-dom-reader-server": "^6.0.3",
+		"@mcp-b/webmcp-polyfill": "^6.0.3",
+		"@mcp-b/webmcp-ts-sdk": "^6.0.3",
 		"@tailwindcss/vite": "^4.3.3",
 		"astro": "^5.7.0",
 		"chrome-devtools-mcp": "^1.12.0",
 		"tailwind-merge": "^3.6.0",
-		"tailwindcss": "^4.3.3"
+		"tailwindcss": "^4.3.3",
+		"zod": "^4.2"
 	},
 	"devDependencies": {
 		"wrangler": "4.88.0",
@@ -51,9 +54,11 @@
 		"astro": "astro",
 		"build": "astro build",
 		"cf-typegen": "wrangler types",
-		"check": "astro build && tsc && wrangler deploy --dry-run",
+		"check": "astro build && tsc --noEmit && bun test",
 		"deploy": "wrangler deploy",
 		"dev": "astro dev",
-		"preview": "astro build && wrangler dev"
+		"preview": "astro build && wrangler dev",
+		"sync": "bun run scripts/sync.ts",
+		"test": "bun test"
 	}
 }
