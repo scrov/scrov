@@ -3856,8 +3856,10 @@ function main() {
               title: document.title,
               activeApplication: document.getElementById('active-context-label')?.textContent?.trim() || null,
               centerView: getCenterView(),
+              leftTab: typeof state !== 'undefined' ? state.activeLeftTab : null,
               activeFile: document.getElementById('monaco-file-title')?.textContent?.trim() || null,
               vfsFolders: Object.keys(vfs),
+              geminiModel: typeof state !== 'undefined' ? state.gemini?.model : null,
               terminalVisible: Boolean(document.getElementById('terminal-dock') && !document.getElementById('terminal-dock').classList.contains('hidden'))
             };
             return { content: text('Read the current Scrov Studio state.'), structuredContent: result };
@@ -3930,6 +3932,53 @@ function main() {
           }
         },
         {
+          name: 'scrov_search_vfs_content',
+          description: 'Search across Scrov virtual workspace files by keyword or substring and return bounded line matches.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: { type: 'string', minLength: 1, description: 'Case-insensitive search substring.' },
+              folder: { type: 'string', description: 'Optional VFS folder filter.' },
+              limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Maximum line matches to return.' }
+            },
+            required: ['query'],
+            additionalProperties: false
+          },
+          annotations: { readOnlyHint: true },
+          execute(input = {}) {
+            const needle = String(input.query || '').trim().toLowerCase();
+            if (!needle) {
+              return { content: text('A non-empty search query is required.'), isError: true };
+            }
+            const vfs = readVfs();
+            const folders = typeof input.folder === 'string' && input.folder ? [input.folder] : Object.keys(vfs);
+            const limit = clamp(input.limit, 20, 1, 50);
+            const matches = [];
+            for (const folder of folders) {
+              const entries = vfs[folder];
+              if (!entries || typeof entries !== 'object') continue;
+              for (const [name, file] of Object.entries(entries)) {
+                const lines = typeof file?.content === 'string' ? file.content.split('\n') : [];
+                for (let idx = 0; idx < lines.length; idx += 1) {
+                  if (lines[idx].toLowerCase().includes(needle) || name.toLowerCase().includes(needle)) {
+                    matches.push({
+                      folder,
+                      name,
+                      line: idx + 1,
+                      snippet: lines[idx].slice(0, 200)
+                    });
+                    if (matches.length >= limit) break;
+                  }
+                }
+                if (matches.length >= limit) break;
+              }
+              if (matches.length >= limit) break;
+            }
+            const result = { query: input.query, matches, totalReturned: matches.length, truncated: matches.length >= limit };
+            return { content: text(`Found ${matches.length} VFS matches for "${input.query}".`), structuredContent: result };
+          }
+        },
+        {
           name: 'scrov_switch_center_view',
           description: 'Switch the visible Scrov Studio center view without changing workspace data.',
           inputSchema: {
@@ -3951,6 +4000,30 @@ function main() {
             }
             window.switchCenterTab(input.view);
             return { content: text(`Switched to ${input.view}.`), structuredContent: { centerView: input.view } };
+          }
+        },
+        {
+          name: 'scrov_switch_left_tab',
+          description: 'Switch the active Scrov Studio left sidebar engine view (WebDAV VFS, PGlite SQL, Wasmoon Lua, QuickJS, or Storage/IDB).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              tab: {
+                type: 'string',
+                enum: ['webdav', 'pglite', 'lua', 'qjs', 'idb'],
+                description: 'Left sidebar tab identifier to activate.'
+              }
+            },
+            required: ['tab'],
+            additionalProperties: false
+          },
+          annotations: { idempotentHint: true },
+          execute(input = {}) {
+            if (typeof window.switchLeftTab !== 'function') {
+              return { content: text('The Studio left-tab switcher is unavailable.'), isError: true };
+            }
+            window.switchLeftTab(input.tab);
+            return { content: text(`Switched left sidebar tab to ${input.tab}.`), structuredContent: { leftTab: input.tab } };
           }
         },
         {
@@ -3997,6 +4070,403 @@ function main() {
             window.setActiveApp(input.app);
             return { content: text(`Selected ${input.app}.`), structuredContent: { app: input.app } };
           }
+        },
+        {
+          name: 'scrov_list_mcp_catalog',
+          description: 'List and filter tools from the Scrov Studio MCP & Skills catalog across Google Cloud, Gemini Enterprise, GitHub, Cloudflare, and Ads.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              category: {
+                type: 'string',
+                enum: ['ALL', 'GCLOUD', 'GEMINI', 'GH', 'CF', 'ADS'],
+                description: 'Optional catalog category filter.'
+              },
+              query: { type: 'string', description: 'Optional case-insensitive search substring.' },
+              limit: { type: 'integer', minimum: 1, maximum: 100, description: 'Maximum catalog entries to return.' }
+            },
+            additionalProperties: false
+          },
+          annotations: { readOnlyHint: true },
+          execute(input = {}) {
+            const catalog = typeof mcpCatalogData !== 'undefined' && Array.isArray(mcpCatalogData) ? mcpCatalogData : [];
+            const category = typeof input.category === 'string' && input.category ? input.category.toUpperCase() : 'ALL';
+            const query = typeof input.query === 'string' ? input.query.trim().toLowerCase() : '';
+            const limit = clamp(input.limit, 50, 1, 100);
+            const filtered = catalog
+              .filter((item) => (category === 'ALL' || item.cat === category))
+              .filter((item) => !query || item.id.toLowerCase().includes(query) || item.name.toLowerCase().includes(query) || item.desc.toLowerCase().includes(query))
+              .slice(0, limit);
+            const result = {
+              category,
+              query: query || null,
+              totalAvailable: catalog.length,
+              returned: filtered.length,
+              tools: filtered
+            };
+            return { content: text(`Returned ${filtered.length} MCP catalog tools.`), structuredContent: result };
+          }
+        },
+        {
+          name: 'scrov_inspect_mcp_tool',
+          description: 'Load a catalog MCP tool into the Studio REST REPL or prefill it into the FiveStar Agent input box.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              toolId: { type: 'string', description: 'Exact tool ID from the Scrov MCP catalog (e.g. "github:dispatch_workflow").' },
+              target: {
+                type: 'string',
+                enum: ['repl', 'chat', 'pty'],
+                description: 'Destination surface: "repl" (REST REPL), "chat" (FiveStar Agent input), or "pty" (Terminal Dock).'
+              }
+            },
+            required: ['toolId'],
+            additionalProperties: false
+          },
+          annotations: { idempotentHint: true },
+          execute(input = {}) {
+            const catalog = typeof mcpCatalogData !== 'undefined' && Array.isArray(mcpCatalogData) ? mcpCatalogData : [];
+            const found = catalog.find((item) => item.id === input.toolId);
+            if (!found) {
+              return { content: text(`MCP tool "${input.toolId}" was not found in the catalog.`), isError: true };
+            }
+            const target = input.target || 'repl';
+            if (target === 'chat' && typeof window.selectChatTool === 'function') {
+              window.selectChatTool(found.id);
+            } else if (target === 'pty' && typeof window.pipeToolToPty === 'function') {
+              window.pipeToolToPty(found.id);
+            } else if (typeof window.inspectToolInRepl === 'function') {
+              window.inspectToolInRepl(found.id);
+            }
+            return {
+              content: text(`Loaded MCP tool "${found.id}" into ${target}.`),
+              structuredContent: { tool: found, target }
+            };
+          }
+        },
+        {
+          name: 'scrov_run_mcp_preset',
+          description: 'Trigger one of the Scrov Studio MCP Automation Setup presets and return its execution payload.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              preset: {
+                type: 'string',
+                enum: ['gcloud_deploy', 'gws_calendar', 'cloudflare_wrangler', 'github_workflow', 'adspirer_ads', 'adb_bridge'],
+                description: 'Preset identifier to execute.'
+              }
+            },
+            required: ['preset'],
+            additionalProperties: false
+          },
+          annotations: { idempotentHint: true },
+          execute(input = {}) {
+            const specs = typeof mcpSetupSpecs !== 'undefined' && mcpSetupSpecs ? mcpSetupSpecs : {};
+            const spec = specs[input.preset];
+            if (!spec || typeof window.runMcpPresetSetup !== 'function') {
+              return { content: text(`MCP preset "${input.preset}" is unavailable.`), isError: true };
+            }
+            if (typeof window.switchCenterTab === 'function') {
+              window.switchCenterTab('tab-mcp-wizards');
+            }
+            window.runMcpPresetSetup(input.preset);
+            const result = {
+              preset: input.preset,
+              tool: spec.tool,
+              spec: spec.spec,
+              result: spec.res
+            };
+            return { content: text(`Executed MCP preset "${input.preset}" (${spec.tool}).`), structuredContent: result };
+          }
+        },
+        {
+          name: 'scrov_run_shell_macro',
+          description: 'Execute a bounded Scrov Studio diagnostic shellmacro in the cockpit.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              macro: {
+                type: 'string',
+                enum: ['htmx_inspect', 'envoy_dump', 'curl_gen', 'adb_pipe', 'wasmoon_eval', 'gtag_audit', 'smtp_relay', 'pop3_fetch'],
+                description: 'Shellmacro identifier to run.'
+              }
+            },
+            required: ['macro'],
+            additionalProperties: false
+          },
+          annotations: { idempotentHint: true },
+          execute(input = {}) {
+            if (typeof window.runMacro !== 'function') {
+              return { content: text('The Studio macro dispatcher is unavailable.'), isError: true };
+            }
+            window.runMacro(input.macro);
+            return { content: text(`Dispatched shellmacro "${input.macro}".`), structuredContent: { macro: input.macro } };
+          }
+        },
+        {
+          name: 'scrov_dispatch_rest_repl',
+          description: 'Configure and dispatch a simulated gateway request in the Scrov Studio REST REPL.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              method: {
+                type: 'string',
+                enum: ['GET', 'POST', 'PUT', 'DELETE', 'PROPFIND'],
+                description: 'HTTP / WebDAV method.'
+              },
+              url: { type: 'string', minLength: 1, description: 'Endpoint path or URL to test in the REPL.' },
+              payload: { type: 'object', description: 'Optional JSON request body object.' }
+            },
+            required: ['url'],
+            additionalProperties: false
+          },
+          annotations: { idempotentHint: true },
+          execute(input = {}) {
+            const method = input.method || 'GET';
+            const methodEl = document.getElementById('repl-method-select');
+            const urlEl = document.getElementById('repl-url-input');
+            const payloadEl = document.getElementById('repl-payload-editor');
+            if (!methodEl || !urlEl || typeof window.dispatchReplRequest !== 'function') {
+              return { content: text('The Studio REST REPL controls are unavailable.'), isError: true };
+            }
+            methodEl.value = method;
+            urlEl.value = input.url;
+            if (input.payload && payloadEl) {
+              payloadEl.value = JSON.stringify(input.payload, null, 2);
+            }
+            if (typeof window.switchCenterTab === 'function') {
+              window.switchCenterTab('tab-restrepl-logger');
+            }
+            window.dispatchReplRequest();
+            const result = {
+              method,
+              url: input.url,
+              cluster: 'scrov-kind-production',
+              status: 200
+            };
+            return { content: text(`Dispatched ${method} ${input.url} in the Studio REST REPL.`), structuredContent: result };
+          }
+        },
+        {
+          name: 'scrov_get_parsed_logs',
+          description: 'Read and filter indexed Logcat / Clipboard log events from the Scrov Studio log parser.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              level: {
+                type: 'string',
+                enum: ['ALL', 'INFO', 'WARN', 'ERR', 'DEBUG'],
+                description: 'Optional log severity filter.'
+              },
+              query: { type: 'string', description: 'Optional substring filter.' },
+              loadSampleIfEmpty: { type: 'boolean', description: 'Load sample logcat entries if the buffer is currently empty.' },
+              limit: { type: 'integer', minimum: 1, maximum: 100, description: 'Maximum log entries to return.' }
+            },
+            additionalProperties: false
+          },
+          annotations: { readOnlyHint: true },
+          execute(input = {}) {
+            if (input.loadSampleIfEmpty && (!state?.parsedLogs || state.parsedLogs.length === 0) && typeof window.loadSampleLog === 'function') {
+              window.loadSampleLog();
+            }
+            const logs = Array.isArray(state?.parsedLogs) ? state.parsedLogs : [];
+            const level = typeof input.level === 'string' && input.level ? input.level.toUpperCase() : 'ALL';
+            const query = typeof input.query === 'string' ? input.query.trim().toLowerCase() : '';
+            const limit = clamp(input.limit, 25, 1, 100);
+            const filtered = logs
+              .filter((entry) => (level === 'ALL' || entry.level === level))
+              .filter((entry) => !query || String(entry.raw || '').toLowerCase().includes(query))
+              .slice(0, limit)
+              .map(({ id, level: lvl, raw }) => ({ id, level: lvl, raw }));
+            const result = {
+              level,
+              totalIndexed: logs.length,
+              returned: filtered.length,
+              logs: filtered
+            };
+            return { content: text(`Returned ${filtered.length} of ${logs.length} indexed log entries.`), structuredContent: result };
+          }
+        },
+        {
+          name: 'scrov_query_sqlite_logs',
+          description: 'Execute a bounded read-only SELECT query against the in-browser SQLite / PGlite telemetry engine.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              sql: {
+                type: 'string',
+                description: 'Read-only SELECT query to run (defaults to "SELECT * FROM gateway_routes LIMIT 10;").'
+              }
+            },
+            additionalProperties: false
+          },
+          annotations: { readOnlyHint: true },
+          execute(input = {}) {
+            const sql = String(input.sql || 'SELECT * FROM gateway_routes LIMIT 10;').trim();
+            if (!/^(select|pragma)\b/i.test(sql) || /;.*\S/i.test(sql.replace(/;\s*$/, ''))) {
+              return { content: text('Only single-statement read-only SELECT or PRAGMA queries are permitted.'), isError: true };
+            }
+            if (!state?.sqlDb || typeof state.sqlDb.exec !== 'function') {
+              return { content: text('The in-browser SQLite engine is not initialized yet.'), isError: true };
+            }
+            try {
+              const res = state.sqlDb.exec(sql);
+              const columns = res[0]?.columns || [];
+              const values = (res[0]?.values || []).slice(0, 50);
+              return {
+                content: text(`Executed SQLite query returning ${values.length} row(s).`),
+                structuredContent: { sql, columns, rows: values, rowCount: values.length }
+              };
+            } catch (error) {
+              return { content: text(`SQLite query error: ${error.message}`), isError: true };
+            }
+          }
+        },
+        {
+          name: 'scrov_control_terminal_dock',
+          description: 'Control the Scrov Studio XTerm Tmux Terminal Dock visibility, active window, or run a safe built-in status command.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              visible: { type: 'boolean', description: 'Optional visibility state for the terminal dock.' },
+              tmuxWindow: {
+                type: 'string',
+                enum: ['bash', 'curlpty', 'adb', 'sshx', 'mcp'],
+                description: 'Optional Tmux window tab to select.'
+              },
+              command: {
+                type: 'string',
+                enum: ['help', 'gh-mcp', 'cf-agent', 'curlpty', 'clear'],
+                description: 'Optional built-in terminal status command to run.'
+              }
+            },
+            additionalProperties: false
+          },
+          annotations: { idempotentHint: true },
+          execute(input = {}) {
+            const dock = document.getElementById('terminal-dock');
+            if (typeof input.visible === 'boolean' && dock) {
+              const isVisible = !dock.classList.contains('hidden');
+              if (isVisible !== input.visible && typeof window.toggleTerminalDock === 'function') {
+                window.toggleTerminalDock();
+              }
+            }
+            if (typeof input.tmuxWindow === 'string' && typeof window.switchTmuxTab === 'function') {
+              window.switchTmuxTab(input.tmuxWindow);
+            }
+            if (typeof input.command === 'string' && typeof window.handleTerminalCmd === 'function') {
+              window.handleTerminalCmd(input.command);
+            }
+            const visibleNow = Boolean(dock && !dock.classList.contains('hidden'));
+            return {
+              content: text('Updated Scrov Terminal Dock state.'),
+              structuredContent: {
+                terminalVisible: visibleNow,
+                tmuxWindow: input.tmuxWindow || null,
+                commandExecuted: input.command || null
+              }
+            };
+          }
+        },
+        {
+          name: 'scrov_get_compliance_and_storage_state',
+          description: 'Read Law 25 consent preferences, LocalStorage key sizes, GDrive Vault script metadata, and Gemini configuration.',
+          inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+          annotations: { readOnlyHint: true },
+          execute() {
+            const storageKeys = Object.keys(localStorage).map((key) => ({
+              key,
+              bytes: (localStorage.getItem(key) || '').length
+            }));
+            const result = {
+              consent: state?.consent || null,
+              geminiModel: state?.gemini?.model || null,
+              autoExecuteTools: Boolean(state?.gemini?.autoExecute),
+              gdriveScripts: Array.isArray(state?.gdriveScripts) ? state.gdriveScripts : [],
+              storageKeys
+            };
+            return {
+              content: text(`Read compliance and storage state (${storageKeys.length} LocalStorage keys).`),
+              structuredContent: result
+            };
+          }
+        },
+        {
+          name: 'search_summary',
+          description: 'Search Scrov Studio MCP catalog tools and VFS workspace files with summary.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: { type: 'string', description: 'Search query string.' },
+              limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Maximum items to return.' }
+            },
+            required: ['query'],
+            additionalProperties: false
+          },
+          annotations: { readOnlyHint: true },
+          execute(input = {}) {
+            const query = String(input.query || '').trim();
+            const needle = query.toLowerCase();
+            const limit = clamp(input.limit, 10, 1, 50);
+            const items = [];
+            const catalog = typeof mcpCatalogData !== 'undefined' && Array.isArray(mcpCatalogData) ? mcpCatalogData : [];
+            for (const toolItem of catalog) {
+              if (!needle || toolItem.id.toLowerCase().includes(needle) || toolItem.name.toLowerCase().includes(needle) || toolItem.desc.toLowerCase().includes(needle)) {
+                items.push(`[MCP:${toolItem.cat}] ${toolItem.id} — ${toolItem.name}`);
+                if (items.length >= limit) break;
+              }
+            }
+            if (items.length < limit) {
+              const vfs = readVfs();
+              for (const [folder, entries] of Object.entries(vfs)) {
+                if (!entries || typeof entries !== 'object') continue;
+                for (const name of Object.keys(entries)) {
+                  if (!needle || folder.toLowerCase().includes(needle) || name.toLowerCase().includes(needle)) {
+                    items.push(`[VFS] /dav/${folder}/${name}`);
+                    if (items.length >= limit) break;
+                  }
+                }
+                if (items.length >= limit) break;
+              }
+            }
+            if (items.length === 0 && query) {
+              items.push(query);
+            }
+            const summary = { total: items.length, items };
+            return {
+              content: text(`Found ${items.length} summary item(s) for "${query}".`),
+              structuredContent: summary
+            };
+          }
+        },
+        {
+          name: 'calculate_total',
+          description: 'Add a numeric count to a limit, which defaults to 10.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              count: { type: 'string', pattern: '^\\d+$', description: 'Numeric count string (digits only).' },
+              limit: { type: 'number', default: 10, description: 'Numeric limit to add (defaults to 10).' }
+            },
+            required: ['count'],
+            additionalProperties: false
+          },
+          annotations: { readOnlyHint: true },
+          execute(input = {}) {
+            const rawCount = String(input.count ?? '').trim();
+            if (!/^\d+$/.test(rawCount)) {
+              return { content: text('Invalid input: count must be a numeric digit string.'), isError: true };
+            }
+            const limit = input.limit === undefined ? 10 : Number(input.limit);
+            if (!Number.isFinite(limit)) {
+              return { content: text('Invalid input: limit must be a finite number.'), isError: true };
+            }
+            const total = Number(rawCount) + limit;
+            return {
+              content: text(`Calculated total: ${total}.`),
+              structuredContent: { total }
+            };
+          }
         }
       ];
 
@@ -4016,17 +4486,24 @@ function main() {
         .registerTool({
           name: 'get_page_title',
           description: 'Get the current page title',
-          inputSchema: { type: 'object', properties: {} },
+          inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+          annotations: { readOnlyHint: true },
           execute: async () => ({
             content: [{ type: 'text', text: document.title }],
+            structuredContent: { title: document.title },
           }),
         })
         .then(() => {
-          document.getElementById('status').textContent =
-            'Tool "get_page_title" registered. Waiting for relay connection...';
+          const statusEl = document.getElementById('status');
+          if (statusEl) {
+            statusEl.textContent = 'Tool "get_page_title" registered. Waiting for relay connection...';
+          }
         })
         .catch((error) => {
-          document.getElementById('status').textContent = `Registration failed: ${error.message}`;
+          const statusEl = document.getElementById('status');
+          if (statusEl) {
+            statusEl.textContent = `Registration failed: ${error.message}`;
+          }
         });
     </script>
 
