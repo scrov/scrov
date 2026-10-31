@@ -36,7 +36,7 @@ jobs:
         run: bun run sync
 
       - name: Commit changes if updated
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore: update cached project metadata [skip ci]"
           file_pattern: "src/config.json .cache/sync.json"
