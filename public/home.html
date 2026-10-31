@@ -3828,21 +3828,6 @@ function main() {
     })
     .catch((error) => {
       document.getElementById('status').textContent = `Registration failed: ${error.message}`;
-      name: 'navigate',
-  description: 'Navigate to a different route in the application',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      to: { type: 'string', description: 'The route path to navigate to' },
-      params: { type: 'object', additionalProperties: true },
-      search: { type: 'object', additionalProperties: true },
-    },
-    required: ['to'],
-  },
-  execute: async (input) => {
-    await router.navigate({ to: input.to, params: input.params });
-    return `Navigated to ${input.to}`;
-  },
     });
 </script>
     <script src="https://cdn.jsdelivr.net/npm/@mcp-b/webmcp-local-relay@6/dist/browser/embed.js"></script>
