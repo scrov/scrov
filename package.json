@@ -28,7 +28,7 @@
 		"chrome-devtools-mcp": "^1.12.0",
 		"tailwind-merge": "^3.6.0",
 		"tailwindcss": "^4.3.3",
-		"zod": "^4.2"
+		"zod": "^4.6"
 	},
 	"devDependencies": {
 		"wrangler": "4.88.0",
