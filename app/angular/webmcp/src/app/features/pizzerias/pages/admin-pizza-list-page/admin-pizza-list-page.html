@@ -1,0 +1,53 @@
+@if (deleteError()) {
+  <rw-callout variant="error" [message]="deleteError()" />
+}
+
+<div class="admin-tab-toolbar">
+  <rw-button (click)="openCreate()">+ Create pizza</rw-button>
+</div>
+
+@if (pizzasResource.isLoading()) {
+  <div class="loading-center" aria-label="Loading pizzas"><rw-spinner /></div>
+} @else if (pizzasResource.error()) {
+  <rw-callout variant="error" message="Could not load pizzas. Please try again." />
+} @else {
+  @let pizzas = pizzasResource.value()!;
+  @if (pizzas.length === 0) {
+    <rw-empty-state
+      icon="folder-off"
+      title="No pizzas yet"
+      text="Create pizzas to build the menu customers see when they order."
+    >
+      <rw-button (click)="openCreate()">Create your first pizza</rw-button>
+    </rw-empty-state>
+  } @else {
+    <section class="admin-table-section">
+      <div class="admin-table-scroll">
+        <table class="admin-table" aria-label="Pizzas">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Base price</th>
+              <th scope="col">Total price</th>
+              <th scope="col">Toppings</th>
+              <th scope="col" class="admin-table__actions-head">
+                <span class="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pizza of pizzas; track pizza.id) {
+              <tr
+                rw-admin-pizza-row
+                [pizza]="pizza"
+                (edit)="openEdit($event)"
+                (deleted)="onPizzaDeleted($event)"
+                (deleteError)="onDeleteError($event)"
+              ></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+}

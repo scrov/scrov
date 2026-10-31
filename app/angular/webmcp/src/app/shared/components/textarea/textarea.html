@@ -1,0 +1,27 @@
+<div class="field" [class.field--error]="formField()().touched() && formField()().errors().length">
+  <label class="field__label">
+    @if (label()) {
+      {{ label() }}
+      @if (isRequired()) {
+        <span class="field__required" aria-hidden="true">*</span>
+      }
+    }
+    <textarea
+      [placeholder]="placeholder()"
+      [rows]="rows()"
+      [formField]="formField()"
+      class="field__textarea"
+    ></textarea>
+  </label>
+  @if (maxLength()) {
+    <span class="field__counter"> {{ charCount() }}/{{ maxLength() }} </span>
+  }
+  @if (hint() && !(formField()().touched() && formField()().errors().length)) {
+    <span class="field__hint">{{ hint() }}</span>
+  }
+  @if (formField()().touched() && formField()().errors().length) {
+    <span class="field__error" role="alert">
+      {{ formField()().errors()[0].message }}
+    </span>
+  }
+</div>

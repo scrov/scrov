@@ -1,0 +1,27 @@
+@if (variant() === 'success') {
+  <img
+    class="callout__icon callout__icon--success"
+    ngSrc="/icons/success.svg"
+    alt=""
+    width="24"
+    height="24"
+    aria-hidden="true"
+  />
+}
+@if (variant() === 'error') {
+  <img
+    class="callout__icon callout__icon--error"
+    ngSrc="/icons/error.svg"
+    alt=""
+    width="24"
+    height="24"
+    aria-hidden="true"
+  />
+}
+<div class="callout__content">
+  @if (heading()) {
+    <span class="callout__heading">{{ heading() }}</span>
+  }
+  <span class="callout__message">{{ message() }}</span>
+</div>
+<span class="callout__action"><ng-content /></span>
