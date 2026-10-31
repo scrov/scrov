@@ -3811,25 +3811,199 @@ function main() {
     }
   </script>
   <script>
-  if (!document.modelContext) throw new Error('WebMCP is unavailable');
-  void document.modelContext
-    .registerTool({
-      name: 'get-page-title',
-      description: 'Get the current page title',
-      inputSchema: { type: 'object', properties: {} },
-      async execute() {
-        return {
-          content: [{ type: 'text', text: document.title }],
-        };
-      },
-    })
-    .then(() => {
-      document.getElementById('status').textContent = 'Tool "get-page-title" registered.';
-    })
-    .catch((error) => {
-      document.getElementById('status').textContent = `Registration failed: ${error.message}`;
+    // WebMCP tools expose bounded Studio actions and VFS reads to capable agents.
+    // They intentionally never create, overwrite, delete, export, or execute workspace content.
+    void (async function registerScrovWebMcpTools() {
+      const marker = document.documentElement;
+      if (marker.dataset.scrovWebmcpTools) return;
+      if (!document.modelContext?.registerTool) {
+        marker.dataset.scrovWebmcpError = 'document.modelContext.registerTool is unavailable';
+        return;
+      }
+
+      const text = (value) => [{ type: 'text', text: value }];
+      const clamp = (value, fallback, minimum, maximum) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? Math.max(minimum, Math.min(maximum, Math.floor(number))) : fallback;
+      };
+      const readVfs = () => {
+        try {
+          const value = JSON.parse(localStorage.getItem('scrov_vfs_data') || '{}');
+          return value && typeof value === 'object' ? value : {};
+        } catch {
+          return {};
+        }
+      };
+      const getCenterView = () => Array.from(document.querySelectorAll('[id^="tab-"]'))
+        .find((element) => !element.id.startsWith('tab-btn-') && !element.classList.contains('hidden') && getComputedStyle(element).display !== 'none')
+        ?.id || null;
+
+      const tools = [
+        {
+          name: 'scrov_get_studio_state',
+          description: 'Read the current Scrov Studio view, active workspace file, and available VFS folders.',
+          inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+          annotations: { readOnlyHint: true },
+          execute() {
+            const vfs = readVfs();
+            const result = {
+              title: document.title,
+              activeApplication: document.getElementById('active-context-label')?.textContent?.trim() || null,
+              centerView: getCenterView(),
+              activeFile: document.getElementById('monaco-file-title')?.textContent?.trim() || null,
+              vfsFolders: Object.keys(vfs),
+              terminalVisible: Boolean(document.getElementById('terminal-dock') && !document.getElementById('terminal-dock').classList.contains('hidden'))
+            };
+            return { content: text('Read the current Scrov Studio state.'), structuredContent: result };
+          }
+        },
+        {
+          name: 'scrov_list_vfs_files',
+          description: 'List bounded metadata for files in the Scrov virtual workspace. File content is not returned.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              folder: { type: 'string', description: 'Optional VFS folder to list.' },
+              limit: { type: 'integer', minimum: 1, maximum: 100, description: 'Maximum files to return.' }
+            },
+            additionalProperties: false
+          },
+          annotations: { readOnlyHint: true },
+          execute(input = {}) {
+            const vfs = readVfs();
+            const folders = typeof input.folder === 'string' && input.folder ? [input.folder] : Object.keys(vfs);
+            const limit = clamp(input.limit, 50, 1, 100);
+            const files = [];
+            for (const folder of folders) {
+              const entries = vfs[folder];
+              if (!entries || typeof entries !== 'object') continue;
+              for (const [name, file] of Object.entries(entries)) {
+                files.push({
+                  folder,
+                  name,
+                  language: typeof file?.lang === 'string' ? file.lang : 'plaintext',
+                  characters: typeof file?.content === 'string' ? file.content.length : 0
+                });
+                if (files.length >= limit) break;
+              }
+              if (files.length >= limit) break;
+            }
+            const result = { files, returned: files.length, truncated: files.length >= limit };
+            return { content: text(`Listed ${files.length} virtual workspace files.`), structuredContent: result };
+          }
+        },
+        {
+          name: 'scrov_read_vfs_file',
+          description: 'Read a selected Scrov virtual workspace file with an explicit bounded character limit.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              folder: { type: 'string', description: 'VFS folder containing the file.' },
+              name: { type: 'string', description: 'Exact VFS file name.' },
+              maxCharacters: { type: 'integer', minimum: 1, maximum: 12000, description: 'Maximum characters of content to return.' }
+            },
+            required: ['folder', 'name'],
+            additionalProperties: false
+          },
+          annotations: { readOnlyHint: true },
+          execute(input = {}) {
+            const file = readVfs()?.[input.folder]?.[input.name];
+            if (!file || typeof file.content !== 'string') {
+              return { content: text('The requested VFS file was not found.'), isError: true };
+            }
+            const maxCharacters = clamp(input.maxCharacters, 4000, 1, 12000);
+            const result = {
+              folder: input.folder,
+              name: input.name,
+              language: typeof file.lang === 'string' ? file.lang : 'plaintext',
+              content: file.content.slice(0, maxCharacters),
+              totalCharacters: file.content.length,
+              truncated: file.content.length > maxCharacters
+            };
+            return { content: text(`Read ${result.content.length} characters from ${input.folder}/${input.name}.`), structuredContent: result };
+          }
+        },
+        {
+          name: 'scrov_switch_center_view',
+          description: 'Switch the visible Scrov Studio center view without changing workspace data.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              view: {
+                type: 'string',
+                enum: ['tab-restrepl-logger', 'tab-marketing-cms', 'tab-mcp-wizards', 'tab-compliance-policies', 'tab-monaco-editor'],
+                description: 'Center view identifier to show.'
+              }
+            },
+            required: ['view'],
+            additionalProperties: false
+          },
+          annotations: { idempotentHint: true },
+          execute(input = {}) {
+            if (typeof window.switchCenterTab !== 'function') {
+              return { content: text('The Studio center-view switcher is unavailable.'), isError: true };
+            }
+            window.switchCenterTab(input.view);
+            return { content: text(`Switched to ${input.view}.`), structuredContent: { centerView: input.view } };
+          }
+        },
+        {
+          name: 'scrov_open_vfs_file',
+          description: 'Open an existing Scrov virtual workspace file in the Studio editor without modifying it.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              folder: { type: 'string', description: 'VFS folder containing the file.' },
+              name: { type: 'string', description: 'Exact VFS file name.' }
+            },
+            required: ['folder', 'name'],
+            additionalProperties: false
+          },
+          annotations: { idempotentHint: true },
+          execute(input = {}) {
+            if (!readVfs()?.[input.folder]?.[input.name] || typeof window.selectVfsFile !== 'function') {
+              return { content: text('The requested VFS file could not be opened.'), isError: true };
+            }
+            window.selectVfsFile(input.folder, input.name);
+            return { content: text(`Opened ${input.folder}/${input.name}.`), structuredContent: { folder: input.folder, name: input.name } };
+          }
+        },
+        {
+          name: 'scrov_set_active_app',
+          description: 'Set the active Scrov monorepo application context without modifying project data.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              app: {
+                type: 'string',
+                enum: ['apps/scrov', 'apps/shadowroot', 'apps/github-io', 'apps/api'],
+                description: 'Application context to select.'
+              }
+            },
+            required: ['app'],
+            additionalProperties: false
+          },
+          annotations: { idempotentHint: true },
+          execute(input = {}) {
+            if (typeof window.setActiveApp !== 'function') {
+              return { content: text('The Studio application selector is unavailable.'), isError: true };
+            }
+            window.setActiveApp(input.app);
+            return { content: text(`Selected ${input.app}.`), structuredContent: { app: input.app } };
+          }
+        }
+      ];
+
+      const registered = [];
+      for (const tool of tools) {
+        await document.modelContext.registerTool(tool);
+        registered.push(tool.name);
+      }
+      marker.dataset.scrovWebmcpTools = registered.join(',');
+    })().catch((error) => {
+      document.documentElement.dataset.scrovWebmcpError = String(error?.message || error);
     });
-</script>
+  </script>
     <script src="https://cdn.jsdelivr.net/npm/@mcp-b/webmcp-local-relay@6/dist/browser/embed.js"></script>
 
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6431693003705528"
