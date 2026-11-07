@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scrov — say it once, every device answers</title>
+<meta name="description" content="scrov is a planned open-source voice agent that turns one spoken request into WebMCP tool calls and sends them to Home Assistant, Google Cast, VITURE glasses and your desktop at once.">
+<link rel="canonical" href="https://scrov.app/platform/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#08090b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f8fa" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="scrov">
+<meta property="og:title" content="scrov — say it once, every device answers">
+<meta property="og:description" content="A planned open-source voice agent that fans one spoken request out to every device you own, through WebMCP tools.">
+<meta property="og:url" content="https://scrov.app/platform/">
+<meta property="og:image" content="https://scrov.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="platform.css">
+<script>document.documentElement.classList.add('js');</script>
+<script src="platform.js" defer></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "scrov",
+  "description": "A planned open-source voice agent that turns one spoken request into WebMCP tool calls for many devices at once.",
+  "url": "https://scrov.app/platform/",
+  "codeRepository": "https://github.com/scrov/bot",
+  "license": "https://unlicense.org/",
+  "author": { "@type": "Person", "name": "scrov", "url": "https://scrov.app" }
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <nav class="wrap nav" aria-label="Main">
+    <a class="brand" href="/platform/">
+      <span class="brand-mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>
+      scrov
+    </a>
+    <button class="icon-btn menu-btn" type="button" aria-expanded="false" aria-controls="nav-links">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+      <span class="visually-hidden">Menu</span>
+    </button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#devices">Devices</a></li>
+      <li><a href="#developers">Developers</a></li>
+      <li><a href="/wiki.md">Spec</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <a class="btn btn-primary nav-cta" href="https://gist.github.com/scrov/e7742404d04727602473a038acdd3ecd">Install script</a>
+  </nav>
+</header>
+
+<main id="main">
+
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="hero-meta">
+          <span class="chip"><span class="ring" aria-hidden="true"></span>Planned · in design</span>
+          <span class="label">Voice → WebMCP → every device</span>
+        </div>
+        <h1 id="hero-title">Say it once. Every device answers.</h1>
+        <p class="lead">scrov is a planned open-source voice agent. It turns one spoken request into WebMCP tool calls and sends them to Home Assistant, Google Cast, VITURE glasses and your desktop at the same time.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://gist.github.com/scrov/e7742404d04727602473a038acdd3ecd">Get the install script</a>
+          <a class="btn btn-secondary" href="/wiki.md">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+            Read the spec
+          </a>
+        </div>
+        <div class="cmd">
+          <span class="prompt" aria-hidden="true">$</span>
+          <code id="install-cmd" tabindex="0">curl -fsSL https://gist.githubusercontent.com/scrov/e7742404d04727602473a038acdd3ecd/raw/.i.sh | sh</code>
+          <button class="icon-btn" type="button" data-copy="install-cmd" aria-label="Copy install command">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          </button>
+        </div>
+        <p class="cmd-note">For the scrov Discord bot, <a href="https://github.com/scrov/bot">scrov/bot</a> (planned). Read the script before you run it. <span class="copy-status" id="install-cmd-status" role="status"></span></p>
+      </div>
+
+      <figure class="panel" aria-labelledby="fanout-caption" style="margin: 0">
+        <div class="panel-head">
+          <span class="label" id="fanout-caption">One request, three calls</span>
+          <span class="label">Illustration</span>
+        </div>
+        <div class="panel-body">
+          <div class="utterance">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            <p><span class="visually-hidden">You say: </span>“Dim the living room lights, cast my focus playlist to the TV, and pin a 20-minute timer in my glasses.”</p>
+          </div>
+          <ol class="calls" aria-label="Tool calls sent at the same time">
+            <li class="call">
+              <div class="call-top"><span class="call-tool">ha_light_set</span><span class="call-target">Home Assistant · ESPHome</span></div>
+              <code class="call-args">{ area: "living_room", brightness: 30 }</code>
+            </li>
+            <li class="call">
+              <div class="call-top"><span class="call-tool">cast_play</span><span class="call-target">Google Cast · living room TV</span></div>
+              <code class="call-args">{ room: "living_room", playlist: "focus" }</code>
+            </li>
+            <li class="call">
+              <div class="call-top"><span class="call-tool">glasses_timer_pin</span><span class="call-target">VITURE XR glasses</span></div>
+              <code class="call-args">{ minutes: 20 }</code>
+            </li>
+          </ol>
+          <div class="reply">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/></svg>
+            <p><span class="visually-hidden">scrov replies: </span>“Lights at 30%, focus playlist on the TV, timer pinned.”</p>
+          </div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="label">How it works</span>
+        <h2 id="how-title">One request, fanned out.</h2>
+        <p>Each stage uses an SDK that already exists. scrov is the part that connects them.</p>
+      </div>
+      <ol class="steps">
+        <li class="step">
+          <h3>Speak</h3>
+          <p>Wear a reSpeaker Clip, with two mics that pick up sound all around you up to 3 m away, or use any browser microphone.</p>
+          <p class="built-on">reSpeaker Clip · <span class="nowrap">BLE 5.3</span> · <span class="nowrap">Wi-Fi 6</span></p>
+        </li>
+        <li class="step">
+          <h3>Understand</h3>
+          <p>A Cloudflare voice agent streams the audio over a WebSocket, transcribes it, and lets you interrupt it mid-reply. Azure Speech is the alternative speech provider.</p>
+          <p class="built-on">Cloudflare Agents · withVoice</p>
+        </li>
+        <li class="step">
+          <h3>Fan out</h3>
+          <p>The agent turns the request into WebMCP tool calls and sends them in parallel to every connected device that offers a matching tool.</p>
+          <p class="built-on">WebMCP · registerTool()</p>
+        </li>
+        <li class="step">
+          <h3>Confirm</h3>
+          <p>Each device returns its result. The agent answers once, out loud, with what worked and what didn’t.</p>
+          <p class="built-on">Streaming TTS</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" id="devices" aria-labelledby="devices-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="label">Devices</span>
+        <h2 id="devices-title">Where the tools live.</h2>
+        <p>A device joins when a page or desktop window registers WebMCP tools for it. Every row below is planned.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="devices">
+          <caption class="visually-hidden">Planned devices, how scrov reaches them and example tools</caption>
+          <thead>
+            <tr><th scope="col">Device</th><th scope="col">Reached through</th><th scope="col">Example tools</th><th scope="col">Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Home Assistant</th>
+              <td data-label="Through"><span><span class="via-sdk">ESPHome native API</span>Sensors, lights and switches you flashed with ESPHome firmware</span></td>
+              <td data-label="Tools"><span class="tools"><code>ha_light_set</code><code>ha_scene_run</code><code>ha_sensor_read</code></span></td>
+              <td data-label="Status"><span class="chip"><span class="ring" aria-hidden="true"></span>planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Google Cast</th>
+              <td data-label="Through"><span><span class="via-sdk">Cast Web Sender SDK</span>A sender page drives TVs and speakers in each room</span></td>
+              <td data-label="Tools"><span class="tools"><code>cast_play</code><code>cast_pause</code><code>cast_volume_set</code></span></td>
+              <td data-label="Status"><span class="chip"><span class="ring" aria-hidden="true"></span>planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row">VITURE glasses</th>
+              <td data-label="Through"><span><span class="via-sdk">VITURE XR Glasses SDK</span>Android, Linux, Windows and macOS: head tracking, motion sensors, camera</span></td>
+              <td data-label="Tools"><span class="tools"><code>glasses_overlay_show</code><code>glasses_timer_pin</code><code>glasses_recenter</code></span></td>
+              <td data-label="Status"><span class="chip"><span class="ring" aria-hidden="true"></span>planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Desktop</th>
+              <td data-label="Through"><span><span class="via-sdk">Tauri v2 + Leptos SSR</span>One native binary that hosts its own tool pages</span></td>
+              <td data-label="Tools"><span class="tools"><code>desktop_notify</code><code>desktop_open_url</code><code>desktop_clipboard_write</code></span></td>
+              <td data-label="Status"><span class="chip"><span class="ring" aria-hidden="true"></span>planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row">reSpeaker Clip</th>
+              <td data-label="Through"><span><span class="via-sdk">Open firmware + SDK</span>Also an output: its small OLED screen and vibration motor</span></td>
+              <td data-label="Tools"><span class="tools"><code>clip_oled_show</code><code>clip_vibrate</code></span></td>
+              <td data-label="Status"><span class="chip"><span class="ring" aria-hidden="true"></span>planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Discord</th>
+              <td data-label="Through"><span><span class="via-sdk">scrov/bot on Cloudflare Workers</span>Slash commands and posts in your server</span></td>
+              <td data-label="Tools"><span class="tools"><code>discord_post</code><code>discord_status</code></span></td>
+              <td data-label="Status"><span class="chip"><span class="ring" aria-hidden="true"></span>planned</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="developers" aria-labelledby="dev-title">
+    <div class="wrap dev-grid">
+      <div>
+        <div class="section-head" style="margin-bottom: 0">
+          <span class="label">Developers</span>
+          <h2 id="dev-title">Any page you control becomes a device.</h2>
+          <p>WebMCP is a proposed web standard: a page registers tools, and an agent calls them instead of clicking through the interface. scrov connects those tools to your voice.</p>
+        </div>
+        <ul class="notes">
+          <li>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <p><b>Tools stay in your page.</b> They reuse the code, session and login the page already has, so there is no second backend to build.</p>
+          </li>
+          <li>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
+            <p><b>Register only what the screen can do.</b> Abort the signal and the tool disappears from the agent’s list.</p>
+          </li>
+          <li>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>
+            <p><b>A bridge relays the calls.</b> A scrov browser extension and the desktop app connect page tools to the voice agent. Planned.</p>
+          </li>
+          <li>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            <p><b>Browser support today:</b> origin trials in Chrome 149 and Edge 150. For local work, turn on <code class="inline-code">chrome://flags/#enable-webmcp-testing</code>.</p>
+          </li>
+        </ul>
+      </div>
+      <figure class="code" style="margin: 0" aria-labelledby="code-caption">
+        <figcaption class="code-head"><span class="label" id="code-caption">cast-sender.js</span><span class="label">WebMCP</span></figcaption>
+<pre tabindex="0"><code><span class="c">// Your existing Cast sender page, now a scrov device</span>
+<span class="k">const</span> tools = <span class="k">new</span> AbortController();
+
+<span class="k">await</span> document.modelContext.registerTool({
+  name: <span class="s">"cast_play"</span>,
+  description: <span class="s">"Play a playlist on the Cast device in a room"</span>,
+  inputSchema: {
+    type: <span class="s">"object"</span>,
+    properties: {
+      room: { type: <span class="s">"string"</span>, description: <span class="s">"Room name, e.g. living_room"</span> },
+      playlist: { type: <span class="s">"string"</span> }
+    },
+    required: [<span class="s">"room"</span>, <span class="s">"playlist"</span>]
+  },
+  <span class="k">async</span> execute({ room, playlist }) {
+    <span class="k">await</span> playOnCast(room, playlist); <span class="c">// your Cast SDK code</span>
+    <span class="k">return</span> {
+      content: [{ type: <span class="s">"text"</span>, text: <span class="s">`Playing ${playlist} in ${room}`</span> }]
+    };
+  }
+}, { signal: tools.signal });
+
+<span class="c">// Leaving this screen? tools.abort() removes the tool.</span></code></pre>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="licenses" aria-labelledby="lic-title">
+    <div class="wrap lic-grid">
+      <div class="section-head">
+        <span class="label">Open source</span>
+        <h2 id="lic-title">Open code, licenses respected.</h2>
+        <p>scrov’s own code is open source. <a href="https://github.com/scrov/bot">scrov/bot</a> is released under The Unlicense. Every SDK keeps its own license, and scrov follows each one. The full table is in the <a href="/wiki.md#8-licenses">spec</a>.</p>
+      </div>
+      <ul class="lic-list">
+        <li><span class="lic-name">Cloudflare Agents SDK</span><span class="lic-id">MIT</span></li>
+        <li><span class="lic-name">ONNX Runtime</span><span class="lic-id">MIT</span></li>
+        <li><span class="lic-name">ONNX</span><span class="lic-id">Apache-2.0</span></li>
+        <li>
+          <span class="lic-name">Ultralytics YOLO11</span><span class="lic-id">AGPL-3.0</span>
+          <span class="lic-note">Any scrov part that ships YOLO11 code or weights is released under AGPL-3.0, or uses an Ultralytics Enterprise license.</span>
+        </li>
+        <li>
+          <span class="lic-name">ESPHome</span><span class="lic-id">MIT · GPL-3.0</span>
+          <span class="lic-note">Python tooling is MIT. Firmware built from the C++ runtime is shared under GPL-3.0.</span>
+        </li>
+        <li><span class="lic-name">Tauri v2</span><span class="lic-id">MIT / Apache-2.0</span></li>
+        <li><span class="lic-name">Leptos · tauri-leptos-ssr</span><span class="lic-id">MIT</span></li>
+        <li><span class="lic-name">reSpeaker Clip firmware (Seeed)</span><span class="lic-id">Apache-2.0</span></li>
+        <li>
+          <span class="lic-name">Azure Speech SDK · Google Cast SDK · VITURE XR SDK</span><span class="lic-id">Vendor terms</span>
+          <span class="lic-note">Installed or loaded from each vendor under their own terms, never bundled into scrov.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="label">FAQ</span>
+        <h2 id="faq-title">Questions, answered plainly.</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Can I use scrov today?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></summary>
+          <div class="answer"><p>Not yet. Every feature on this page is planned. Work starts with the Discord bot in <a href="https://github.com/scrov/bot">scrov/bot</a>, and the <a href="/wiki.md">spec</a> tracks the design as it changes.</p></div>
+        </details>
+        <details>
+          <summary>What is WebMCP?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></summary>
+          <div class="answer"><p>A proposed web standard from the W3C Web Machine Learning Community Group. A page calls <code class="inline-code">document.modelContext.registerTool()</code> to register a tool: a function with a description and a JSON schema. AI agents then call that function directly. Read the <a href="https://github.com/webmachinelearning/webmcp">WebMCP explainer</a>.</p></div>
+        </details>
+        <details>
+          <summary>Which browsers support it?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></summary>
+          <div class="answer"><p>Chrome 149 and Edge 150 run origin trials, and Chrome has a flag for local development. Firefox has an open standards-position discussion. The desktop app and any Firefox support depend on how this develops, and the spec lists the fallbacks.</p></div>
+        </details>
+        <details>
+          <summary>Do I need the reSpeaker Clip?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></summary>
+          <div class="answer"><p>No. Any browser microphone works. The Clip is for hands-free use all day: it clips on, picks up sound all around you, and can answer back with its screen and vibration.</p></div>
+        </details>
+        <details>
+          <summary>Where does my voice go?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></summary>
+          <div class="answer"><p>In the planned design, audio streams to a voice agent on your own Cloudflare account. The agent keeps the conversation text in its own SQLite storage, so the data stays in your account.</p></div>
+        </details>
+        <details>
+          <summary>Which speech provider does it use?<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></summary>
+          <div class="answer"><p>Workers AI speech-to-text and text-to-speech by default, through the Cloudflare Agents voice API. Azure Speech is the planned alternative.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="cta-title">
+    <div class="wrap">
+      <div class="cta-band">
+        <div>
+          <h2 id="cta-title">Start with the Discord bot.</h2>
+          <p>The install script is where scrov begins: the bot on your own Cloudflare account. Read the spec for everything planned after it.</p>
+        </div>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://gist.github.com/scrov/e7742404d04727602473a038acdd3ecd">Get the install script</a>
+          <a class="btn btn-secondary" href="https://github.com/scrov/bot">scrov/bot on GitHub</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-row">
+      <p class="footer-session">scrov · <span class="nowrap">session closed</span> · <span class="nowrap">errors 0</span> · <span class="nowrap">warnings 0</span></p>
+      <ul class="footer-links">
+        <li><a href="/">scrov.app</a></li>
+        <li><a href="/wiki.md">wiki.md</a></li>
+        <li><a href="https://github.com/scrov/scrov">scrov/scrov</a></li>
+        <li><a href="https://github.com/scrov/bot">scrov/bot</a></li>
+        <li><a href="#licenses">Licenses</a></li>
+      </ul>
+    </div>
+    <p class="footer-fine">Product names belong to their owners. scrov isn’t affiliated with or endorsed by Cloudflare, Google, Microsoft, Seeed Studio, VITURE, Home Assistant or ESPHome. Set in Inter and JetBrains Mono (SIL Open Font License 1.1).</p>
+  </div>
+</footer>
+</body>
+</html>
