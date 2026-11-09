@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intent Lab — simulated BCI cursor control · scrov</title>
+<meta name="description" content="Steer a cursor through a simulated brain–computer interface decoder. Tune the filter and spring, run a grid task, and measure bits per second and input-to-frame latency against a 15 ms budget.">
+<link rel="canonical" href="https://scrov.app/lab/intent/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#08090b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f8fa" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Intent Lab — simulated BCI cursor control">
+<meta property="og:description" content="A noisy, delayed decoder in a Web Worker, a tunable filter and spring, and a grid task that measures bits per second and latency.">
+<meta property="og:url" content="https://scrov.app/lab/intent/">
+<meta property="og:image" content="https://scrov.app/og.png">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/platform/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/platform/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/platform/tokens.css">
+<link rel="stylesheet" href="lab.css">
+<script type="module" src="lab.js"></script>
+</head>
+<body>
+<a class="skip" href="#lab">Skip to the lab</a>
+
+<header class="lab-header">
+  <div class="wrap bar">
+    <a class="brand" href="/">scrov <span>/ lab / intent</span></a>
+    <nav aria-label="Lab links" class="bar-links">
+      <a href="https://github.com/scrov/scrov/blob/main/docs/intent-lab.md">Write-up</a>
+      <a href="https://github.com/scrov/scrov/tree/main/public/lab/intent">Source</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="wrap intro" aria-labelledby="title">
+    <span class="label">Prototype · BCI cursor control</span>
+    <h1 id="title">Intent Lab</h1>
+    <p class="lead">Steer a cursor through a simulated brain–computer interface decoder. Your hand plays the brain. A Web Worker plays the decoder: it bins your movement every few milliseconds and adds noise, drift, delay and dropped packets. The page has to turn that stream into a cursor you can aim with.</p>
+    <p class="lead-sub">Tune the filter and the spring, then run the timed grid task. The page measures bits per second and the time from your input to the drawn frame, against a 15 ms budget.</p>
+  </section>
+
+  <section id="lab" class="wrap lab" aria-label="Lab" tabindex="-1">
+    <div class="stage-col">
+      <div class="stage" id="stage" tabindex="0" aria-label="Cursor stage" aria-describedby="stage-help">
+        <canvas id="canvas" aria-hidden="true"></canvas>
+        <div class="overlay" id="overlay" aria-hidden="true">
+          <p><b>Click to take control.</b> Esc releases the mouse.<br>On a touchscreen, drag. With a keyboard, focus here and use the arrow keys.</p>
+        </div>
+      </div>
+      <p id="stage-help" class="help">Mouse: click the stage to lock the pointer, Esc to release. Touch: drag on the stage, tap to click. Keyboard: arrow keys or WASD move, Space clicks in click mode. Selection follows the cursor you see.</p>
+      <div class="session">
+        <button class="btn btn-primary" id="start" type="button">Start 60 s run</button>
+        <button class="btn btn-secondary" id="reset" type="button">Reset</button>
+        <span class="clock" id="clock" aria-live="off">60.0 s</span>
+      </div>
+    </div>
+
+    <form class="controls" id="controls" aria-label="Lab settings">
+      <fieldset>
+        <legend>Preset</legend>
+        <div class="segmented">
+          <label><input type="radio" name="preset" value="raw"> Raw decoder</label>
+          <label><input type="radio" name="preset" value="smooth"> Smoothed</label>
+          <label><input type="radio" name="preset" value="tuned" checked> Smoothed + spring</label>
+          <label><input type="radio" name="preset" value="custom"> Custom</label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Decoder <span class="hint">(the worker)</span></legend>
+        <div class="field"><label for="binMs">Bin size</label><output id="binMs-out" for="binMs"></output>
+          <input type="range" id="binMs" name="binMs" min="5" max="50" step="1" value="15"></div>
+        <div class="field"><label for="lagBins">Delay</label><output id="lagBins-out" for="lagBins binMs"></output>
+          <input type="range" id="lagBins" name="lagBins" min="0" max="10" step="1" value="2"></div>
+        <div class="field"><label for="noise">Noise</label><output id="noise-out" for="noise"></output>
+          <input type="range" id="noise" name="noise" min="0" max="100" step="1" value="30"></div>
+        <div class="field"><label for="dropout">Dropped packets</label><output id="dropout-out" for="dropout"></output>
+          <input type="range" id="dropout" name="dropout" min="0" max="20" step="1" value="2"></div>
+        <label class="check"><input type="checkbox" name="drift" checked> Slow drift (bias that wanders)</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Filter <span class="hint">(position)</span></legend>
+        <div class="field"><label for="filter">Type</label>
+          <select id="filter" name="filter">
+            <option value="none">None</option>
+            <option value="exp">Exponential</option>
+            <option value="oneEuro" selected>One Euro</option>
+          </select></div>
+        <div id="one-euro-fields">
+          <div class="field"><label for="minCutoff">Min cutoff</label><output id="minCutoff-out" for="minCutoff"></output>
+            <input type="range" id="minCutoff" name="minCutoff" min="0.1" max="5" step="0.1" value="1"></div>
+          <div class="field"><label for="beta">Speed response (β)</label><output id="beta-out" for="beta"></output>
+            <input type="range" id="beta" name="beta" min="0" max="0.05" step="0.001" value="0.008"></div>
+        </div>
+        <div id="exp-fields" hidden>
+          <div class="field"><label for="alpha">Smoothing (α)</label><output id="alpha-out" for="alpha"></output>
+            <input type="range" id="alpha" name="alpha" min="0.02" max="1" step="0.01" value="0.25"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Cursor</legend>
+        <label class="check"><input type="checkbox" name="spring" checked> Spring between the filter and the screen</label>
+        <div class="field"><label for="stiffness">Stiffness (k)</label><output id="stiffness-out" for="stiffness"></output>
+          <input type="range" id="stiffness" name="stiffness" min="50" max="1500" step="10" value="420"></div>
+        <div class="field"><label for="damping">Damping ratio (ζ)</label><output id="damping-out" for="damping"></output>
+          <input type="range" id="damping" name="damping" min="0.3" max="1.5" step="0.05" value="0.85"></div>
+        <p class="readout" id="settle-out" aria-live="polite"></p>
+        <label class="check"><input type="checkbox" name="showRaw" checked> Show the unfiltered decoder position</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Task</legend>
+        <div class="field"><label for="grid">Grid</label><output id="grid-out" for="grid"></output>
+          <input type="range" id="grid" name="grid" min="4" max="16" step="1" value="8"></div>
+        <div class="segmented" role="group" aria-label="Selection mode">
+          <label><input type="radio" name="mode" value="dwell" checked> Dwell</label>
+          <label><input type="radio" name="mode" value="click"> Click</label>
+        </div>
+        <div class="field"><label for="dwellMs">Dwell time</label><output id="dwellMs-out" for="dwellMs"></output>
+          <input type="range" id="dwellMs" name="dwellMs" min="200" max="1500" step="50" value="600"></div>
+        <div class="field"><label for="duration">Run length</label>
+          <select id="duration" name="duration">
+            <option value="30">30 s</option>
+            <option value="60" selected>60 s</option>
+            <option value="120">120 s</option>
+          </select></div>
+      </fieldset>
+    </form>
+  </section>
+
+  <section class="wrap metrics" aria-labelledby="metrics-title">
+    <h2 id="metrics-title">Live metrics</h2>
+    <dl class="metric-grid">
+      <div class="metric metric-lead"><dt>Bitrate</dt><dd><span id="m-bps">0.00</span> <span class="unit">bits/s</span></dd></div>
+      <div class="metric"><dt>Correct / missed</dt><dd id="m-score">0 / 0</dd></div>
+      <div class="metric"><dt>Median time to select</dt><dd id="m-select">—</dd></div>
+      <div class="metric"><dt>Stream → frame, p50 / p99</dt><dd id="m-stream">—</dd></div>
+      <div class="metric"><dt>Intent → frame, p50 / p99</dt><dd id="m-intent">—</dd></div>
+      <div class="metric"><dt>Dropped bins</dt><dd id="m-drop">0.0%</dd></div>
+      <div class="metric"><dt>Display</dt><dd id="m-hz">—</dd></div>
+    </dl>
+    <div class="budget">
+      <div class="budget-bar" aria-hidden="true"><span class="budget-fill" id="budget-fill"></span><span class="budget-mark"></span></div>
+      <p class="budget-legend"><span>0</span><span>15 ms budget</span><span>30 ms</span></p>
+      <p class="budget-verdict" id="budget-verdict">Take control of the stage to start measuring.</p>
+    </div>
+    <div class="results" id="results" hidden>
+      <div class="results-head">
+        <h3>Run complete</h3>
+        <button class="btn btn-secondary" id="copy-results" type="button">Copy results</button>
+        <span class="copy-status" id="copy-status" role="status"></span>
+      </div>
+      <pre id="results-json" tabindex="0"></pre>
+    </div>
+    <p class="visually-hidden" id="announce" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="wrap notes" aria-labelledby="try-title">
+    <div>
+      <h2 id="try-title">What to try</h2>
+      <ol class="try">
+        <li><b>Raw against smoothed.</b> Do one run on “Raw decoder” and one on “Smoothed”. Dwell is where jitter hurts most, because the cursor has to hold still on a cell.</li>
+        <li><b>Spring stiffness.</b> A stiffer spring feels faster, and below ζ ≈ 0.7 it overshoots. Compare the median time to select at k = 200 and k = 800.</li>
+        <li><b>Delay.</b> Raise the delay to 6 bins. Reaches start to overshoot, because you correct for where the cursor was, not where it is.</li>
+        <li><b>The Midas touch.</b> After a dwell selection, that cell is disarmed until the cursor leaves it. Resting on a cell never selects it twice.</li>
+      </ol>
+    </div>
+    <div>
+      <h2>What the numbers mean</h2>
+      <dl class="defs">
+        <dt>Bitrate</dt>
+        <dd>log₂(N − 1) × max(correct − missed, 0) ÷ seconds, for N cells. Missed selections cancel correct ones, so guessing doesn’t pay.</dd>
+        <dt>Stream → frame</dt>
+        <dd>From the moment the worker posts a decoded bin to the moment the frame that uses it is drawn. This is the page’s own share of the budget. On a 60 Hz display, waiting for the next frame alone can take up to 16.7 ms.</dd>
+        <dt>Intent → frame</dt>
+        <dd>From your input event to the drawn frame. It includes the bin wait and the simulated delay you set.</dd>
+        <dt>Limits</dt>
+        <dd>“Drawn” means submitted to the browser, not lit on the display, and browsers coarsen their timers. The filter and spring add lag that timestamps can’t show, so compare median time to select as well.</dd>
+      </dl>
+    </div>
+  </section>
+</main>
+
+<footer class="lab-footer">
+  <div class="wrap bar">
+    <p>scrov · <span class="nowrap">session closed</span> · <span class="nowrap">errors 0</span></p>
+    <p><a href="/">scrov.app</a> · <a href="https://github.com/scrov/scrov">github.com/scrov/scrov</a></p>
+  </div>
+</footer>
+</body>
+</html>
