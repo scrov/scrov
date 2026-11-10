@@ -7,9 +7,9 @@ import { Auth } from './core/services/auth';
 import { baseUrlInterceptor } from './core/interceptors/base-url.interceptor';
 
 // WebMCP tools are registered where the state/behavior they expose lives, not here:
-// - App-wide tools (cart, current user) are declared via `declareWebMcpTool` in the
+// - App-wide tools (cart, current user) are declared via `declareExperimentalWebMcpTool` in the
 //   constructors of `CartStore` and `Auth`, so they're always available.
-// - Page-scoped tools (browsing, checkout, orders) are registered via `provideWebMcpTools`
+// - Page-scoped tools (browsing, checkout, orders) are registered via `provideExperimentalWebMcpTools`
 //   in the relevant route's `providers` array, so they inherit that route's guards and are
 //   only available while the user is actually on that page. See each feature's
 //   `*.webmcp-tools.ts` file.

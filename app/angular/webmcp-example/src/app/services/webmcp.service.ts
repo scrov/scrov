@@ -5,8 +5,8 @@
  * It registers tools that AI agents can call to interact with the app.
  *
  * Key patterns shown:
- * - Using navigator.modelContext.registerTool() for tool registration
- * - Storing tool references for cleanup via DestroyRef
+ * - Using document.modelContext.registerTool() for tool registration
+ * - Unregistering tools with an AbortSignal when the service is destroyed (DestroyRef)
  * - Connecting tools to application state (NoteService)
  *
  * @see https://docs.mcp-b.ai/frameworks/angular
@@ -21,7 +21,8 @@ import type { NoteColor } from '../types';
 export class WebMCPService {
   private readonly noteService = inject(NoteService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly registeredTools: Array<{ unregister: () => void }> = [];
+  /** Aborting this signal unregisters every tool registered through it. */
+  private readonly registrations = new AbortController();
 
   /**
    * Initialize all WebMCP tools.
@@ -39,17 +40,33 @@ export class WebMCPService {
 
     // Cleanup: unregister all tools when service is destroyed
     this.destroyRef.onDestroy(() => {
-      this.registeredTools.forEach((tool) => tool.unregister());
+      this.registrations.abort();
     });
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Tool Registration Methods
-  // Each method registers one WebMCP tool using navigator.modelContext.registerTool()
+  // Each method registers one WebMCP tool using document.modelContext.registerTool()
   // ─────────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Register one tool on `document.modelContext` (installed by `@mcp-b/global`,
+   * or provided natively by the browser).
+   */
+  private register(tool: WebMCP.ModelContextTool): void {
+    const modelContext = document.modelContext;
+    if (!modelContext) {
+      console.warn(`WebMCP: document.modelContext is unavailable, skipping ${tool.name}`);
+      return;
+    }
+
+    modelContext
+      .registerTool(tool, { signal: this.registrations.signal })
+      .catch((error: unknown) => console.error(`WebMCP: failed to register ${tool.name}`, error));
+  }
+
   private registerAddNoteTool(): void {
-    const tool = navigator.modelContext.registerTool({
+    this.register({
       name: 'add_note',
       description: 'Create a new note with title and content',
       inputSchema: {
@@ -95,12 +112,10 @@ export class WebMCPService {
         };
       },
     });
-
-    this.registeredTools.push(tool);
   }
 
   private registerDeleteNoteTool(): void {
-    const tool = navigator.modelContext.registerTool({
+    this.register({
       name: 'delete_note',
       description: 'Delete a note by ID',
       inputSchema: {
@@ -128,12 +143,10 @@ export class WebMCPService {
         };
       },
     });
-
-    this.registeredTools.push(tool);
   }
 
   private registerListNotesTool(): void {
-    const tool = navigator.modelContext.registerTool({
+    this.register({
       name: 'list_notes',
       description: 'Get all notes, optionally filtered by color',
       inputSchema: {
@@ -176,12 +189,10 @@ export class WebMCPService {
         };
       },
     });
-
-    this.registeredTools.push(tool);
   }
 
   private registerSearchNotesTool(): void {
-    const tool = navigator.modelContext.registerTool({
+    this.register({
       name: 'search_notes',
       description: 'Search notes by title or content',
       inputSchema: {
@@ -218,12 +229,10 @@ export class WebMCPService {
         };
       },
     });
-
-    this.registeredTools.push(tool);
   }
 
   private registerTogglePinTool(): void {
-    const tool = navigator.modelContext.registerTool({
+    this.register({
       name: 'toggle_pin',
       description: 'Toggle the pinned status of a note',
       inputSchema: {
@@ -256,12 +265,10 @@ export class WebMCPService {
         };
       },
     });
-
-    this.registeredTools.push(tool);
   }
 
   private registerGetStatsTool(): void {
-    const tool = navigator.modelContext.registerTool({
+    this.register({
       name: 'get_note_stats',
       description: 'Get statistics about all notes',
       inputSchema: {
@@ -286,7 +293,5 @@ export class WebMCPService {
         };
       },
     });
-
-    this.registeredTools.push(tool);
   }
 }
