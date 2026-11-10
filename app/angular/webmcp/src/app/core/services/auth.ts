@@ -1,8 +1,7 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, declareExperimentalWebMcpTool } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, catchError, firstValueFrom, of } from 'rxjs';
 import { User } from '../models/user.model';
-import { declareWebMcpTool } from '@mcp-b/webmcp'; 
 
 @Injectable({ providedIn: 'root' })
 export class Auth {
@@ -14,7 +13,7 @@ export class Auth {
   public readonly isAdmin = computed<boolean>(() => this.user()?.role === 'PIZZERIA_ADMIN');
 
   public constructor() {
-    declareWebMcpTool({
+    declareExperimentalWebMcpTool({
       name: 'get_current_user',
       description:
         'Returns whether someone is currently signed in, and if so, their name, email, and role.',
@@ -39,7 +38,7 @@ export class Auth {
     // `window.location.href` reload: that would tear down the page (and this tool's own
     // WebMCP registration) mid-call. Sign out in place instead and update the signal directly,
     // since `logout()` itself doesn't touch `user()`.
-    declareWebMcpTool({
+    declareExperimentalWebMcpTool({
       name: 'logout',
       description: 'Signs the current user out.',
       inputSchema: { type: 'object', properties: {} },

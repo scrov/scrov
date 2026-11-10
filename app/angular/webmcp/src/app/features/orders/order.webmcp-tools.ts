@@ -1,18 +1,17 @@
-import { EnvironmentProviders, inject } from '@angular/core';
+import { EnvironmentProviders, inject, provideExperimentalWebMcpTools } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Page } from '../../core/models/pagination.model';
 import { Order } from './order.models';
 import { OrderApi } from './order-api';
 import type { WebMcpToolResult } from '../../shared/models/webmcp-tool-result.model';
-import { provideWebMcpTools } from '@mcp-b/webmcp';
 /**
  * WebMCP tools registered on the order list route (`order.routes.ts`, path `''`).
  * The parent `orders` route already requires an authenticated user (`authGuard` in
  * `app.routes.ts`), so this tool only exists for an agent once the user is signed in.
  */
 export const orderListWebMcpTools: EnvironmentProviders[] = [
-  provideWebMcpTools([
+  provideExperimentalWebMcpTools([
     {
       name: 'list_my_orders',
       description:
@@ -31,9 +30,7 @@ export const orderListWebMcpTools: EnvironmentProviders[] = [
         const page =
           Number.isInteger(args.page) && (args.page as number) > 0 ? (args.page as number) : 1;
         const limit =
-          Number.isInteger(args.limit) && (args.limit as number) > 0
-            ? (args.limit as number)
-            : 10;
+          Number.isInteger(args.limit) && (args.limit as number) > 0 ? (args.limit as number) : 10;
 
         const result = await firstValueFrom(
           http.get<Page<Order>>('/api/orders', { params: { page, limit } }),
@@ -68,7 +65,7 @@ export const orderListWebMcpTools: EnvironmentProviders[] = [
  * WebMCP tools registered on the order detail route (`order.routes.ts`, path `':id'`).
  */
 export const orderDetailWebMcpTools: EnvironmentProviders[] = [
-  provideWebMcpTools([
+  provideExperimentalWebMcpTools([
     {
       name: 'get_order',
       description:
@@ -111,9 +108,7 @@ export const orderDetailWebMcpTools: EnvironmentProviders[] = [
             try {
               const order: Order = JSON.parse(event.data);
               const itemLines = order.items
-                .map(
-                  (item) => `  - ${item.pizza.name} x${item.quantity} ($${item.unitPrice} each)`,
-                )
+                .map((item) => `  - ${item.pizza.name} x${item.quantity} ($${item.unitPrice} each)`)
                 .join('\n');
 
               finish({
@@ -147,7 +142,7 @@ export const orderDetailWebMcpTools: EnvironmentProviders[] = [
         }),
     },
   ]),
-  provideWebMcpTools([
+  provideExperimentalWebMcpTools([
     {
       name: 'cancel_order',
       description:

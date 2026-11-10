@@ -39,6 +39,10 @@ Live demo: **[https://scrov.app](https://scrov.app)**
 │   ├── dependabot.yml        # Dependabot configuration (npm + actions)
 │   ├── FUNDING.yml           # GitHub Sponsors configuration
 │   └── pull_request_template.md
+├── app/
+│   ├── angular/webmcp/       # Angular pizzeria app exposing WebMCP tools
+│   ├── angular/webmcp-example/ # Minimal Angular + @mcp-b/global WebMCP example
+│   └── nx/                   # Nx workspace (NestJS api, Angular SSR xui)
 ├── public/                   # Static assets, fonts, icons
 ├── scripts/
 │   ├── lib/project.ts        # GitHub API helpers and formatting

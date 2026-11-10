@@ -12,6 +12,9 @@ interface Props {
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
 const { title, description, image = '/blog-placeholder-1.jpg' } = Astro.props;
+
+// Blog posts have a Markdown twin at /blog/<slug>.md for AI agents.
+const postSlug = Astro.url.pathname.match(/^\/blog\/([^/]+)\/?$/)?.[1];
 ---
 
 <!-- Global Metadata -->
@@ -26,6 +29,12 @@ const { title, description, image = '/blog-placeholder-1.jpg' } = Astro.props;
 
 <!-- Canonical URL -->
 <link rel="canonical" href={canonicalURL} />
+
+<!-- Agent discovery -->
+<link rel="sitemap" type="application/xml" href="/sitemap-index.xml" />
+<link rel="alternate" type="application/rss+xml" title={title} href="/rss.xml" />
+{postSlug && <link rel="alternate" type="text/markdown" href={`/blog/${postSlug}.md`} />}
+<link rel="describedby" type="text/plain" title="llms.txt" href="/llms.txt" />
 
 <!-- Primary Meta Tags -->
 <title>{title}</title>

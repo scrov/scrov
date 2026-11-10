@@ -1,17 +1,16 @@
-import { EnvironmentProviders, inject } from '@angular/core';
+import { EnvironmentProviders, inject, provideExperimentalWebMcpTools } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Page } from '../../core/models/pagination.model';
 import { PizzeriaDetail, PizzeriaSummary } from './models/pizzeria.models';
 import { Pizza, PizzaOption } from './models/pizza.models';
 import type { WebMcpToolResult } from '../../shared/models/webmcp-tool-result.model';
-import { provideWebMcpTools } from '@mcp-b/webmcp';
 /**
  * WebMCP tools registered on the pizzeria list route (`pizzeria.routes.ts`, path `''`).
  * Available to an agent whenever the user is browsing the pizzeria list.
  */
 export const pizzeriaListWebMcpTools: EnvironmentProviders[] = [
-  provideWebMcpTools([
+  provideExperimentalWebMcpTools([
     {
       name: 'search_pizzerias',
       description:
@@ -29,7 +28,8 @@ export const pizzeriaListWebMcpTools: EnvironmentProviders[] = [
       },
       execute: async (args): Promise<WebMcpToolResult> => {
         const http = inject(HttpClient);
-        const page = Number.isInteger(args.page) && (args.page as number) > 0 ? (args.page as number) : 1;
+        const page =
+          Number.isInteger(args.page) && (args.page as number) > 0 ? (args.page as number) : 1;
         const limit =
           Number.isInteger(args.limit) && (args.limit as number) > 0
             ? Math.min(args.limit as number, 50)
@@ -72,7 +72,7 @@ export const pizzeriaListWebMcpTools: EnvironmentProviders[] = [
  * Available to an agent whenever the user is viewing a specific pizzeria's page.
  */
 export const pizzeriaDetailWebMcpTools: EnvironmentProviders[] = [
-  provideWebMcpTools([
+  provideExperimentalWebMcpTools([
     {
       name: 'get_pizzeria',
       description:
@@ -114,7 +114,7 @@ export const pizzeriaDetailWebMcpTools: EnvironmentProviders[] = [
       },
     },
   ]),
-  provideWebMcpTools([
+  provideExperimentalWebMcpTools([
     {
       name: 'list_pizzas',
       description:
@@ -174,7 +174,7 @@ export const pizzeriaDetailWebMcpTools: EnvironmentProviders[] = [
       },
     },
   ]),
-  provideWebMcpTools([
+  provideExperimentalWebMcpTools([
     {
       name: 'list_pizza_options',
       description:

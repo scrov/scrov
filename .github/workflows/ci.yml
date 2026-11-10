@@ -30,3 +30,74 @@ jobs:
 
       - name: Run validation (build, typecheck, tests)
         run: bun run check
+
+  nx:
+    name: Nx workspace
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/nx
+    env:
+      NX_DAEMON: "false"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build, lint and test
+        run: bunx nx run-many -t build lint test
+
+  angular-webmcp:
+    name: Angular WebMCP app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/angular/webmcp
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bunx ng lint
+
+      - name: Test
+        run: bunx ng test --watch=false
+
+      - name: Build
+        run: bunx ng build
+
+  angular-webmcp-example:
+    name: Angular WebMCP example
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/angular/webmcp-example
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bunx ng build

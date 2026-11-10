@@ -4,7 +4,9 @@ export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/apps/api',
   resolve: {
-    tsconfigPaths: true,
+    // Off: the lookup also reads tsconfig.json files above this workspace (the
+    // repository root's), and tsconfig.base.json defines no path aliases anyway.
+    tsconfigPaths: false,
   },
   test: {
     name: 'api',
