@@ -1,15 +1,11 @@
-# Agent discovery (RFC 8288 Link headers) and content types for agent-facing files.
+# Headers for the static files in this directory. Pages, feeds and fragments
+# are rendered by the Worker, which sets its own headers (crates/app/src/lib.rs).
 
-/
-  Link: </llms.txt>; rel="describedby"; type="text/plain", </index.md>; rel="alternate"; type="text/markdown", </sitemap-index.xml>; rel="sitemap"; type="application/xml", </rss.xml>; rel="alternate"; type="application/rss+xml"
+/vendor/*
+  Cache-Control: public, max-age=86400
 
-/blog/*
-  Link: </llms.txt>; rel="describedby"; type="text/plain", </sitemap-index.xml>; rel="sitemap"; type="application/xml"
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
 
-/llms.txt
-  Content-Type: text/plain; charset=utf-8
-  X-Robots-Tag: noindex
-
-/*.md
-  Content-Type: text/markdown; charset=utf-8
-  X-Robots-Tag: noindex
+/pkg/*
+  Cache-Control: public, max-age=300

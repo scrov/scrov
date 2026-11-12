@@ -1,0 +1,20 @@
+name = "scrov"
+main = "crates/worker/build/index.js"
+compatibility_date = "2026-10-01"
+upload_source_maps = true
+
+# Compiles crates/worker to WebAssembly and prepares public/ (CSS, fonts,
+# htmx, hyperscript, PGlite, Fengari). See scripts/build-worker.sh.
+[build]
+command = "bash scripts/build-worker.sh"
+# Only source directories: the build writes into crates/worker/build and
+# public/, and watching those would rebuild forever.
+watch_dir = ["crates/app/src", "crates/worker/src", "content/blog", "style"]
+
+# Files in public/ are served directly; anything else reaches the Worker.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[observability]
+enabled = true

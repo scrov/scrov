@@ -1,0 +1,16 @@
+[package]
+name = "scrov-worker"
+description = "Cloudflare Workers entry point for the scrov site."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+scrov-app = { path = "../app" }
+worker = "0.9"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

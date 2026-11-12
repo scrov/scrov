@@ -23,16 +23,24 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build Astro
-        run: bun run build
+      - name: Test
+        run: bun run build:web && cargo test -p scrov-app
 
-      - name: Deploy to Cloudflare Workers / Assets
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # `wrangler deploy` runs the [build] command in wrangler.toml, which
+      # compiles the Worker and prepares public/.
+      - name: Deploy to Cloudflare Workers
+        run: bunx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

@@ -1,0 +1,13 @@
+[package]
+name = "scrov-server"
+description = "Native HTTP server for the scrov site (local development, self-hosting, and the Tauri shell)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+scrov-app = { path = "../app" }
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+tower-http = { version = "0.6", features = ["fs", "compression-gzip", "compression-br"] }
+tower = { version = "0.5", features = ["util"] }
