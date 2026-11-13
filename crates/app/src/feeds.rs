@@ -93,6 +93,14 @@ pub fn llms_txt() -> String {
         ));
     }
     out.push_str(&format!(
+        "\n## Projects\n\n- [scrov platform spec]({}): a planned voice agent that sends one spoken request to many devices as WebMCP tool calls\n- [Intent Lab]({}): a prototype of brain-computer interface cursor control\n",
+        abs("/wiki.md"),
+        abs("/lab/intent/"),
+    ));
+    out.push_str(
+        "\n## Tools for browser agents\n\nIn a browser with WebMCP (`document.modelContext`), every page registers these tools: `get_profile`, `list_projects`, `list_posts`, `read_post`, `list_themes`, `set_theme`. The blog index adds `filter_blog`; the lab page adds `run_sql` and `run_lua`.\n",
+    );
+    out.push_str(&format!(
         "\n## Optional\n\n- [RSS feed]({})\n- [Sitemap]({})\n- [Site data as JSON]({})\n",
         abs("/rss.xml"),
         abs("/sitemap-index.xml"),
@@ -134,7 +142,13 @@ pub fn sitemap_index() -> String {
 }
 
 pub fn sitemap() -> String {
-    let mut urls = vec![abs("/"), abs("/blog/"), abs("/lab/")];
+    let mut urls = vec![
+        abs("/"),
+        abs("/blog/"),
+        abs("/lab/"),
+        abs("/lab/intent/"),
+        abs("/platform/"),
+    ];
     urls.extend(
         posts()
             .iter()

@@ -1,5 +1,9 @@
 // The lab page: Postgres (PGlite) and Lua (Fengari) running in the browser,
 // both loaded with the site's data from /api/data.json.
+//
+// `window.scrovLab` publishes both shells to the WebMCP tools registered by
+// the Rust client (crates/client): `sql(query)` and `lua(code)` return a
+// promise for the text the page shows, and reject when the run fails.
 
 import { PGlite } from "/vendor/pglite/index.js";
 
@@ -8,6 +12,11 @@ const dataPromise = fetch("/api/data.json").then((response) => {
 	if (!response.ok) throw new Error(`/api/data.json: HTTP ${response.status}`);
 	return response.json();
 });
+
+function show(pane, text, failed) {
+	pane.textContent = text;
+	pane.classList.toggle("text-c3", failed);
+}
 
 // ── Postgres ─────────────────────────────────────────────────────────────────
 
@@ -63,46 +72,57 @@ async function startPostgres() {
 const sqlStatus = $("sql-status");
 const sqlOutput = $("sql-output");
 const sqlRun = $("sql-run");
+const postgres = startPostgres();
 
-startPostgres().then(
-	(db) => {
+/** Run SQL, show the outcome in the page and return the text shown. */
+async function runSql(query) {
+	const db = await postgres;
+	sqlRun.disabled = true;
+	const started = performance.now();
+	try {
+		const results = await db.exec(query);
+		const text =
+			results
+				.map((result) =>
+					result.fields.length > 0
+						? formatTable(result.fields, result.rows)
+						: `OK (${result.affectedRows ?? 0} rows affected)`,
+				)
+				.join("\n\n") || "OK";
+		show(sqlOutput, text, false);
+		sqlStatus.textContent = `${(performance.now() - started).toFixed(1)} ms`;
+		return text;
+	} catch (error) {
+		show(sqlOutput, `ERROR:  ${error.message}`, true);
+		sqlStatus.textContent = "failed";
+		throw error;
+	} finally {
+		sqlRun.disabled = false;
+	}
+}
+
+postgres.then(
+	() => {
 		sqlStatus.textContent = "ready";
 		sqlRun.disabled = false;
-		$("sql-form").addEventListener("submit", async (event) => {
-			event.preventDefault();
-			sqlRun.disabled = true;
-			const started = performance.now();
-			try {
-				const results = await db.exec($("sql-input").value);
-				sqlOutput.textContent =
-					results
-						.map((result) =>
-							result.fields.length > 0
-								? formatTable(result.fields, result.rows)
-								: `OK (${result.affectedRows ?? 0} rows affected)`,
-						)
-						.join("\n\n") || "OK";
-				sqlOutput.classList.remove("text-c3");
-				sqlStatus.textContent = `${(performance.now() - started).toFixed(1)} ms`;
-			} catch (error) {
-				sqlOutput.textContent = `ERROR:  ${error.message}`;
-				sqlOutput.classList.add("text-c3");
-				sqlStatus.textContent = "failed";
-			} finally {
-				sqlRun.disabled = false;
-			}
-		});
 	},
 	(error) => {
 		sqlStatus.textContent = `PGlite failed to start: ${error.message}`;
 	},
 );
 
+$("sql-form").addEventListener("submit", (event) => {
+	event.preventDefault();
+	// The failure is already shown in the output pane.
+	runSql($("sql-input").value).catch(() => {});
+});
+
 // ── Lua ──────────────────────────────────────────────────────────────────────
 
 const luaStatus = $("lua-status");
 const luaOutput = $("lua-output");
 const luaRun = $("lua-run");
+let luaLines = [];
 
 // `print` appends to the output pane; `site` is a plain Lua table built from
 // the JSON, so scripts can use ipairs/pairs on it.
@@ -129,41 +149,61 @@ function print(...)
 end
 `;
 
-dataPromise.then(
-	(data) => {
-		if (!window.fengari) {
-			luaStatus.textContent = "Fengari failed to load";
-			return;
-		}
-		let lines = [];
-		window.__scrovData = data;
-		window.__scrovPrint = (text) => lines.push(text);
-		try {
-			window.fengari.load(LUA_PRELUDE, "prelude")();
-		} catch (error) {
-			luaStatus.textContent = `Lua prelude failed: ${error.message ?? error}`;
-			return;
-		}
+const lua = dataPromise.then((data) => {
+	if (!window.fengari) throw new Error("Fengari failed to load");
+	window.__scrovData = data;
+	window.__scrovPrint = (text) => luaLines.push(text);
+	window.fengari.load(LUA_PRELUDE, "prelude")();
+});
+
+/** Run Lua, show the outcome in the page and return what it printed. */
+function runLua(code) {
+	luaLines = [];
+	const started = performance.now();
+	try {
+		const result = window.fengari.load(code, "lab")();
+		if (result !== undefined) luaLines.push(String(result));
+	} catch (error) {
+		const message = `lua: ${error?.message ?? error}`;
+		show(luaOutput, [...luaLines, message].join("\n"), true);
+		luaStatus.textContent = "failed";
+		throw new Error(message);
+	}
+	const text = luaLines.join("\n") || "(no output)";
+	show(luaOutput, text, false);
+	luaStatus.textContent = `${(performance.now() - started).toFixed(1)} ms`;
+	return text;
+}
+
+lua.then(
+	() => {
 		luaStatus.textContent = "ready";
 		luaRun.disabled = false;
-		$("lua-form").addEventListener("submit", (event) => {
-			event.preventDefault();
-			lines = [];
-			const started = performance.now();
-			try {
-				const result = window.fengari.load($("lua-input").value, "lab")();
-				if (result !== undefined) lines.push(String(result));
-				luaOutput.classList.remove("text-c3");
-				luaStatus.textContent = `${(performance.now() - started).toFixed(1)} ms`;
-			} catch (error) {
-				lines.push(`lua: ${error.message ?? error}`);
-				luaOutput.classList.add("text-c3");
-				luaStatus.textContent = "failed";
-			}
-			luaOutput.textContent = lines.join("\n") || "(no output)";
-		});
 	},
 	(error) => {
-		luaStatus.textContent = `could not load site data: ${error.message}`;
+		luaStatus.textContent = `Lua failed to start: ${error?.message ?? error}`;
 	},
 );
+
+$("lua-form").addEventListener("submit", (event) => {
+	event.preventDefault();
+	try {
+		runLua($("lua-input").value);
+	} catch {
+		// The failure is already shown in the output pane.
+	}
+});
+
+// ── for agents ───────────────────────────────────────────────────────────────
+
+window.scrovLab = {
+	async sql(query) {
+		$("sql-input").value = query;
+		return runSql(query);
+	},
+	async lua(code) {
+		await lua;
+		$("lua-input").value = code;
+		return runLua(code);
+	},
+};

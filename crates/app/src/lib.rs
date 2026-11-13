@@ -144,6 +144,8 @@ mod tests {
         assert!(response.body.contains("data-distro=\"debian\""));
         assert!(response.body.contains("/vendor/htmx.min.js"));
         assert!(response.body.contains("/vendor/hyperscript.min.js"));
+        assert!(response.body.contains("/js/webmcp.js"));
+        assert!(response.body.contains("id=\"webmcp-root\""));
         assert!(header(&response, "Link").unwrap().contains("llms.txt"));
     }
 
@@ -211,7 +213,10 @@ mod tests {
         assert_eq!(rss.body.matches("<item>").count(), content::posts().len());
         assert!(get("/sitemap-index.xml").body.contains("/sitemap-0.xml"));
         assert!(get("/sitemap-0.xml").body.contains("/blog/"));
-        assert!(get("/llms.txt").body.contains("## Blog"));
+        let llms = get("/llms.txt").body;
+        assert!(llms.contains("## Blog"));
+        assert!(llms.contains("`run_sql`"));
+        assert!(get("/sitemap-0.xml").body.contains("/lab/intent/"));
 
         let data: serde_json::Value = serde_json::from_str(&get("/api/data.json").body).unwrap();
         assert_eq!(

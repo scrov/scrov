@@ -146,6 +146,7 @@ fn head(meta: &Meta) -> String {
 <script defer src="/vendor/htmx.min.js"></script>
 <script defer src="/vendor/hyperscript.min.js"></script>
 <script defer src="/js/site.js"></script>
+<script type="module" src="/js/webmcp.js"></script>
 <script>(function(w,d,s,l,i){{w[l]=w[l]||[];w[l].push({{'gtm.start':new Date().getTime(),event:'gtm.js'}});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f)}})(window,document,'script','dataLayer','GTM-N9P4WDL5');</script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-7J9FFYLGYT"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments)}}gtag('js',new Date());gtag('config','G-7J9FFYLGYT');</script>
@@ -175,7 +176,11 @@ fn Footer() -> impl IntoView {
                 <a class="hover:text-accent" href="/">"~"</a>
                 <a class="hover:text-accent" href="/blog/">"blog/"</a>
                 <a class="hover:text-accent" href="/lab/">"lab/"</a>
+                <a class="hover:text-accent" href="/platform/">"platform/"</a>
                 <a class="hover:text-accent" href="/rss.xml">"rss.xml"</a>
+                // The browser-side Leptos island (crates/client) mounts here and
+                // reports the WebMCP tools it registered.
+                <span id="webmcp-root" class="ml-auto"></span>
             </nav>
             <div class="flex flex-wrap justify-between gap-2 text-[0.85rem]">
                 <div class="flex flex-wrap items-center gap-2">

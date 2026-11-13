@@ -53,8 +53,11 @@ async fn render(request: Request<Body>) -> Response {
 
 /// The whole site as an axum router: static files first, then rendered pages.
 pub fn router(public: impl Into<PathBuf>) -> Router {
+    // Static directories with an index.html (/platform/, /lab/intent/) are
+    // served as pages, as Workers Static Assets does. A directory without one
+    // (/lab/) falls through to the router.
     let files = ServeDir::new(public.into())
-        .append_index_html_on_directories(false)
+        .append_index_html_on_directories(true)
         .fallback(tower::service_fn(|request: Request<Body>| async move {
             Ok::<_, std::convert::Infallible>(render(request).await)
         }));

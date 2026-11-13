@@ -1,0 +1,35 @@
+[package]
+name = "scrov-client"
+description = "Browser side of the scrov site: a Leptos island that registers WebMCP tools with webmcp-rs."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+leptos = { workspace = true, features = ["csr"] }
+# The package is `webmcp-rs`; its library is named `webmcp`.
+webmcp-rs = { version = "0.3", features = ["leptos"] }
+schemars = "1"
+serde.workspace = true
+serde_json.workspace = true
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Element",
+    "Event",
+    "EventInit",
+    "HtmlElement",
+    "HtmlInputElement",
+    "Location",
+    "Response",
+    "Window",
+] }
+
+# Only the browser build installs the panic hook.
+[target.'cfg(target_family = "wasm")'.dependencies]
+console_error_panic_hook = "0.1"

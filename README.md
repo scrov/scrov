@@ -17,6 +17,7 @@ Live demo: **[https://scrov.app](https://scrov.app)**
 - **In-browser lab** (`/lab/`): query the site's data with Postgres (PGlite) and script it with Lua (Fengari), both running in the visitor's tab.
 - **YAML-Driven Content**: Profile, projects and system definitions live in `content/data.yml` and `content/systems.yml`; posts are Markdown in `content/blog/`.
 - **Agent-friendly**: `llms.txt`, RSS, sitemap, and a Markdown version of every page (`Accept: text/markdown`, or the `.md` URLs).
+- **WebMCP tools**: in a browser that exposes `document.modelContext`, each page registers tools an agent can call instead of scraping: read the profile and posts, switch the theme, filter the blog, run SQL or Lua in the lab.
 - **One app, three hosts**: the same router runs on Cloudflare Workers, on a native server behind Pingora, and inside a Tauri desktop app.
 
 ## Lab
@@ -31,6 +32,7 @@ Live demo: **[https://scrov.app](https://scrov.app)**
 | [Leptos](https://leptos.dev) (SSR only) | Pages and components |
 | [shtml](https://github.com/swlkr/shtml) | HTML fragments returned to htmx |
 | [htmx](https://htmx.org) + [hyperscript](https://hyperscript.org) | Interactivity without a client framework |
+| [webmcp-rs](https://github.com/hauju/webmcp-rs) | WebMCP tool registration from a small Leptos island in the browser |
 | [PGlite](https://pglite.dev) + [fengari-web](https://github.com/fengari-lua/fengari-web) | Postgres and Lua in the browser (lab page) |
 | [Tailwind CSS 4](https://tailwindcss.com) | Styling, built with the Tailwind CLI |
 | [workers-rs](https://github.com/cloudflare/workers-rs) | Cloudflare Workers entry point (WebAssembly) |
@@ -46,6 +48,7 @@ Pingora and Tauri are native-only. They wrap the same site for self-hosting and 
 .
 ├── crates/
 │   ├── app/                  # The site: config, content, Leptos pages, shtml fragments, router
+│   ├── client/               # Browser-side Leptos island: registers the WebMCP tools (WebAssembly)
 │   ├── worker/               # Cloudflare Workers entry point (compiled to WebAssembly)
 │   ├── server/               # Native axum server: static files + the same router
 │   └── proxy/                # Pingora reverse proxy in front of the native server
@@ -60,6 +63,7 @@ Pingora and Tauri are native-only. They wrap the same site for self-hosting and 
 ├── style/input.css           # Tailwind entry point
 ├── scripts/
 │   ├── assets.ts             # Copies vendor JS and fonts into public/, fetches missing logos
+│   ├── build-client.sh       # Builds crates/client into public/pkg/client with wasm-bindgen
 │   ├── build-worker.sh       # Full Worker build (used by wrangler and CI)
 │   ├── sync.ts               # YAML + GitHub -> content/config.json
 │   └── sync.test.ts          # Bun unit tests for sync logic
@@ -68,6 +72,7 @@ Pingora and Tauri are native-only. They wrap the same site for self-hosting and 
 │   ├── angular/webmcp-example/ # Minimal Angular + @mcp-b/global WebMCP example
 │   └── nx/                   # Nx workspace (NestJS api, Angular SSR xui)
 ├── Cargo.toml                # Rust workspace
+├── rust-toolchain.toml       # Pinned Rust toolchain
 ├── package.json              # Scripts and browser dependencies
 └── wrangler.toml             # Cloudflare Workers configuration
 ```
@@ -76,7 +81,7 @@ Pingora and Tauri are native-only. They wrap the same site for self-hosting and 
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs) (stable) with the `wasm32-unknown-unknown` target
+- [rustup](https://rustup.rs); it installs the toolchain pinned in `rust-toolchain.toml`
 - [Bun](https://bun.sh) (v1.x)
 - For the desktop app only: the [Tauri prerequisites](https://tauri.app/start/prerequisites/) and `cargo install tauri-cli`
 
@@ -109,15 +114,29 @@ bun run sync
 bun run check        # build:web, cargo test, bun test
 ```
 
+### WebMCP tools
+
+`crates/client` is a Leptos component compiled to WebAssembly and mounted into the footer. It registers tools with [webmcp-rs](https://github.com/hauju/webmcp-rs), which ties each tool to the component that offers it:
+
+| Where | Tools |
+| --- | --- |
+| Every page | `get_profile`, `list_projects`, `list_posts`, `read_post`, `list_themes`, `set_theme` |
+| Blog index | `filter_blog` |
+| Lab | `run_sql`, `run_lua` |
+
+Tools only appear in a browser with WebMCP: Chrome 149 or newer with `chrome://flags/#enable-webmcp-testing`, or through the origin trial. Elsewhere the footer shows `webmcp: off` and nothing is registered. Argument schemas are derived from the Rust argument types, and `cargo test -p scrov-client` validates every tool descriptor without a browser.
+
+The site and the client enable different Leptos features (`ssr` and `csr`), so build, lint and test them in separate cargo invocations, as the scripts and CI do.
+
 ### Deployment
 
-Pushing to `main` deploys through `.github/workflows/deploy.yml`. To deploy by hand:
+Pushing to `main` deploys through Cloudflare's Git integration (Workers Builds). `.github/workflows/deploy.yml` is a second path that runs `wrangler deploy` only when the repository has `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets. To deploy by hand:
 
 ```bash
 bun run deploy       # builds everything, then `wrangler deploy`
 ```
 
-`wrangler deploy` runs `scripts/build-worker.sh`, which builds `public/` and compiles `crates/worker` with `worker-build`. The script installs the Rust toolchain pieces it needs when they are missing.
+`wrangler deploy` runs `scripts/build-worker.sh`, which builds `public/` (including the WebMCP client) and compiles `crates/worker` with `worker-build`. The script installs rustup, the pinned toolchain and the build tools when they are missing.
 
 ### Self-hosting with Pingora
 

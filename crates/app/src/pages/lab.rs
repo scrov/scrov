@@ -19,8 +19,13 @@ pub fn render() -> String {
         view! {
             <section class="my-6">
                 <SectionTitle title="lab" />
-                <p class="mb-8 text-dim">
+                <p class="mb-2 text-dim">
                     "Both shells run entirely in this tab. Nothing you type leaves your browser."
+                </p>
+                <p class="mb-8 text-dim">
+                    "See also: "
+                    <a class="text-c2 hover:text-accent hover:underline" href="/lab/intent/">"intent/"</a>
+                    ", a prototype of brain–computer interface cursor control."
                 </p>
 
                 <Prompt cmd="psql scrov".to_string() />

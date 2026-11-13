@@ -47,13 +47,14 @@
   "scripts": {
     "assets": "bun run scripts/assets.ts",
     "css": "tailwindcss -i style/input.css -o public/pkg/app.css --minify",
-    "build:web": "bun run assets && bun run css",
+    "build:client": "bash scripts/build-client.sh",
+    "build:web": "bun run assets && bun run css && bun run build:client",
     "build:worker": "bash scripts/build-worker.sh",
     "build": "bun run build:web && bun run build:worker",
     "dev": "bun run build:web && cargo run -p scrov-server",
     "preview": "bun run build && wrangler dev",
     "deploy": "bun run build && wrangler deploy",
-    "check": "bun run build:web && cargo test --workspace && bun test",
+    "check": "bun run build:web && cargo test -p scrov-app -p scrov-server && cargo test -p scrov-client && bun test",
     "sync": "bun run scripts/sync.ts",
     "test": "bun test",
     "tauri": "cargo tauri"

@@ -1,7 +1,11 @@
-@import "tailwindcss";
+/* No automatic source detection: the repository holds other projects (app/,
+   public/platform/, public/lab/intent/) whose markup is not ours to style. */
+@import "tailwindcss" source(none);
 
-/* Class names live in the Rust sources (Leptos views and shtml fragments). */
+/* Class names live in the Rust sources (Leptos views, shtml fragments and the
+   browser-side island) and in the hand-written scripts. */
 @source "../crates/app/src";
+@source "../crates/client/src";
 @source "../public/js";
 
 /* ─────────────────────────────────────────────────────────────
