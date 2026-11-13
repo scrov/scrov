@@ -50,7 +50,7 @@
     "build:client": "bash scripts/build-client.sh",
     "build:web": "bun run assets && bun run css && bun run build:client",
     "build:worker": "bash scripts/build-worker.sh",
-    "build": "bun run build:web && bun run build:worker",
+    "build": "bash scripts/build-worker.sh",
     "dev": "bun run build:web && cargo run -p scrov-server",
     "preview": "bun run build && wrangler dev",
     "deploy": "bun run build && wrangler deploy",

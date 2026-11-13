@@ -2,5 +2,7 @@
 # local machines compile with the same toolchain.
 [toolchain]
 channel = "1.100.0"
+# No rust-docs or other extras: builders have little disk to spare.
+profile = "minimal"
 components = ["clippy", "rustfmt"]
 targets = ["wasm32-unknown-unknown"]
