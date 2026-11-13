@@ -35,8 +35,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun run sync
 
+      # content/config.json is compiled into the Worker, so a changed config
+      # needs new prebuilt artifacts (see prebuilt/README.md).
+      - name: Setup Rust
+        run: rustup toolchain install
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Rebuild the prebuilt artifacts if the config changed
+        run: bun run update-prebuilt -- --if-stale
+
       - name: Commit changes if updated
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update cached project metadata [skip ci]"
-          file_pattern: "content/config.json .cache/sync.json"
+          file_pattern: "content/config.json .cache/sync.json prebuilt"

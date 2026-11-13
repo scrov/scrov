@@ -1,0 +1,76 @@
+name: Prebuilt artifacts
+
+# Keeps prebuilt/ in step with the Rust sources on main, so that deploying
+# never has to compile Rust. See prebuilt/README.md.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - crates/app/**
+      - crates/client/**
+      - crates/worker/**
+      - content/**
+      - scripts/build-client.sh
+      - scripts/build-worker.sh
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prebuilt
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    name: Rebuild if the sources changed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compare prebuilt/ with the sources
+        id: check
+        run: |
+          source scripts/lib/prebuilt.sh
+          if prebuilt_is_current; then
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::prebuilt/ matches the sources; nothing to do."
+          else
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Bun
+        if: steps.check.outputs.stale == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Installs the toolchain, components and targets from rust-toolchain.toml.
+      - name: Setup Rust
+        if: steps.check.outputs.stale == 'true'
+        run: rustup toolchain install
+
+      - name: Cache Cargo
+        if: steps.check.outputs.stale == 'true'
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        if: steps.check.outputs.stale == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Rebuild the Worker and the client
+        if: steps.check.outputs.stale == 'true'
+        run: bun run update-prebuilt
+
+      # No "[skip ci]" here: Cloudflare has to build this commit to deploy it.
+      - name: Commit the new artifacts
+        if: steps.check.outputs.stale == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: rebuild the prebuilt Worker and client"
+          file_pattern: "prebuilt"

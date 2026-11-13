@@ -1,13 +1,30 @@
 #!/usr/bin/env bash
-# Build the browser-side Leptos island (crates/client) into public/pkg/client:
+# Put the browser-side Leptos island (crates/client) into public/pkg/client:
 #   scrov_client.js        ES module glue from wasm-bindgen
 #   scrov_client_bg.wasm   the WebAssembly module
+#
+# When prebuilt/ matches the sources, its copy is used and no Rust toolchain
+# is needed. Otherwise the client is compiled; FORCE_RUST_BUILD=1 always
+# compiles.
 #
 # The wasm-bindgen CLI must match the wasm-bindgen crate in Cargo.lock exactly.
 # The script looks for that version on PATH and in local caches, then downloads
 # the prebuilt binary, and compiles it from source as a last resort.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# shellcheck source=scripts/lib/prebuilt.sh
+source scripts/lib/prebuilt.sh
+
+out=public/pkg/client
+
+if prebuilt_is_current && [ -f "$PREBUILT_DIR/client/scrov_client_bg.wasm" ]; then
+	rm -rf "$out"
+	mkdir -p "$(dirname "$out")"
+	cp -R "$PREBUILT_DIR/client" "$out"
+	echo "client: using the prebuilt copy"
+	exit 0
+fi
+
 # shellcheck source=scripts/lib/rust-env.sh
 source scripts/lib/rust-env.sh
 
@@ -60,8 +77,8 @@ fi
 
 cargo build -p scrov-client --release --target wasm32-unknown-unknown
 
-out=public/pkg/client
 rm -rf "$out"
-"$bindgen" --target web --no-typescript --out-dir "$out" --out-name scrov_client \
+"$bindgen" --target web --no-typescript --remove-name-section --remove-producers-section \
+	--out-dir "$out" --out-name scrov_client \
 	target/wasm32-unknown-unknown/release/scrov_client.wasm
-echo "client ready: $(wc -c <"$out/scrov_client_bg.wasm") bytes of wasm in $out"
+echo "client: compiled, $(wc -c <"$out/scrov_client_bg.wasm") bytes of wasm in $out"
