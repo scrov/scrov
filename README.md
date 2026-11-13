@@ -19,6 +19,11 @@ Live demo: **[https://scrov.app](https://scrov.app)**
 - **Agent-friendly**: `llms.txt`, RSS, sitemap, and a Markdown version of every page (`Accept: text/markdown`, or the `.md` URLs).
 - **One app, three hosts**: the same router runs on Cloudflare Workers, on a native server behind Pingora, and inside a Tauri desktop app.
 
+## Lab
+
+- **[Intent Lab](https://scrov.app/lab/intent/)**: a prototype of brain–computer interface cursor control. A simulated decoder runs in a Web Worker. Its output goes through a One Euro filter and a tunable spring to the drawn cursor. A timed grid task reports bits per second and input-to-frame latency against a 15 ms budget. Write-up: [`docs/intent-lab.md`](docs/intent-lab.md). Tests: [`scripts/intent-core.test.ts`](scripts/intent-core.test.ts).
+- **[scrov platform](https://scrov.app/platform/)**: a planned voice agent that sends one spoken request to many devices as WebMCP tool calls. Spec: [`/wiki.md`](public/wiki.md). Design system: [`DESIGN.md`](DESIGN.md).
+
 ## Tech Stack
 
 | Piece | Role |
