@@ -140,6 +140,8 @@ bun run deploy       # builds everything, then `wrangler deploy`
 
 `wrangler deploy` runs `scripts/build-worker.sh`, which prepares `public/` and the Worker bundle.
 
+Deploys use the Wrangler version pinned in `package.json` (4.88.0). One of the Cloudflare accounts that builds this repository fails to upload with 4.161.0, so check a preview build on both accounts before upgrading it. `bun run preview` runs a newer Wrangler for its local runtime only, because the Worker's Rust library (workers-rs 0.9) needs a newer runtime than 4.88 bundles.
+
 The Worker and the WebMCP client are also committed in [`prebuilt/`](prebuilt/README.md), with a hash of the sources they were built from. When that hash matches, the build copies them and needs no Rust toolchain, so a deploy takes seconds. When the sources have changed, the script compiles instead, installing rustup, the pinned toolchain and the build tools if they are missing. On `main`, the `Prebuilt artifacts` workflow rebuilds and commits `prebuilt/` whenever the sources change; `bun run update-prebuilt` does the same locally.
 
 ### Self-hosting with Pingora

@@ -55,7 +55,7 @@ pub fn handle(request: &Request) -> Response {
             if request.prefers_markdown() {
                 markdown(feeds::home_markdown())
             } else {
-                html(pages::home::render()).header("Link", HOME_LINKS)
+                html(pages::home::render().to_string()).header("Link", HOME_LINKS)
             }
         }
         "/index.md" => markdown(feeds::home_markdown()),

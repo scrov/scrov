@@ -7,6 +7,7 @@ use crate::{
     layout::{page, Meta},
 };
 use leptos::prelude::*;
+use std::sync::LazyLock;
 
 enum Value {
     Fixed(String),
@@ -40,7 +41,15 @@ const ROW: &str = "mb-[0.05rem] flex items-center gap-2";
 const KEY: &str = "inline-block font-medium text-accent min-w-22.5";
 
 /// The fastfetch-style home page.
-pub fn render() -> String {
+///
+/// It is the largest page (one logo and one set of values per distro) and
+/// depends on nothing in the request, so it is rendered once per process.
+pub fn render() -> &'static str {
+    static PAGE: LazyLock<String> = LazyLock::new(render_page);
+    &PAGE
+}
+
+fn render_page() -> String {
     let site = &config().site;
     let mut meta = Meta::new(&site.title, "/");
     meta.markdown = Some("/index.md".into());

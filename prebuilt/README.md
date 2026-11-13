@@ -6,10 +6,10 @@ Copies of the two build outputs that need a Rust toolchain:
 - `client/` — the WebMCP client (`crates/client`, built by `wasm-bindgen`)
 - `source-hash` — a hash of every file those builds read
 
-They are committed so that deploying does not have to compile Rust. Cloudflare's
-builders differ in what they can build: one of the accounts connected to this
-repository cannot finish the Rust compile. With these files a deploy only
-installs the npm packages, builds the CSS and uploads.
+They are committed so that deploying does not have to compile Rust. With these
+files a Cloudflare build only installs the npm packages, builds the CSS and
+uploads: under a minute, where compiling takes five to seven and needs rustup,
+crates.io and GitHub to be reachable from the builder.
 
 `scripts/build-worker.sh` and `scripts/build-client.sh` use these copies only
 when `source-hash` matches the current sources (`Cargo.toml`, `Cargo.lock`,

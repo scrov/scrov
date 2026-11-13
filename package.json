@@ -53,7 +53,7 @@
     "update-prebuilt": "bash scripts/update-prebuilt.sh",
     "build": "bash scripts/build-worker.sh",
     "dev": "bun run build:web && cargo run -p scrov-server",
-    "preview": "bun run build && wrangler dev",
+    "preview": "bun run build && bunx wrangler@4.161.0 dev",
     "deploy": "bun run build && wrangler deploy",
     "check": "bun run build:web && cargo test -p scrov-app -p scrov-server && cargo test -p scrov-client && bun test",
     "sync": "bun run scripts/sync.ts",
