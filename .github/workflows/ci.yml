@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - v2
   pull_request:
     branches:
       - main
+      - v2
   workflow_dispatch:
 
 permissions:
@@ -14,8 +16,118 @@ permissions:
 
 jobs:
   validate:
-    name: Lint, Test & Build
+    name: Rust site (test, lint, Worker build)
     runs-on: ubuntu-latest
+    env:
+      # Compile from source here even when prebuilt/ is current: this job is
+      # what proves the sources build.
+      FORCE_RUST_BUILD: "1"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Installs the toolchain, components and targets from rust-toolchain.toml.
+      - name: Setup Rust
+        run: rustup toolchain install
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build CSS, static assets and the WebMCP client
+        run: bun run build:web
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy -p scrov-app -p scrov-server --all-targets -- -D warnings
+
+      # The client enables Leptos' `csr` feature and the site `ssr`, so they
+      # are linted and tested in separate cargo invocations.
+      - name: Lint the WebMCP client
+        run: cargo clippy -p scrov-client --target wasm32-unknown-unknown -- -D warnings
+
+      - name: Test
+        run: cargo test -p scrov-app -p scrov-server
+
+      - name: Test the WebMCP client
+        run: cargo test -p scrov-client
+
+      - name: Test the scripts
+        run: bun test
+
+      - name: Build the Worker
+        run: SKIP_WEB_BUILD=1 bash scripts/build-worker.sh
+
+      - name: Check the Worker bundle
+        run: bunx wrangler deploy --dry-run
+
+      - name: Check the prebuilt artifacts
+        env:
+          FORCE_RUST_BUILD: "0"
+        run: |
+          source scripts/lib/prebuilt.sh
+          if prebuilt_is_current; then
+            echo "prebuilt/ matches the sources."
+          else
+            echo "::warning::prebuilt/ is older than the Rust sources, so a deploy of this commit compiles from source. It is rebuilt automatically on main; run 'bun run update-prebuilt' to refresh it here."
+          fi
+
+  proxy:
+    name: Pingora proxy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: rustup toolchain install
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Lint and build
+        run: cargo clippy -p scrov-proxy -- -D warnings
+
+  desktop:
+    name: Tauri shell
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev libayatana-appindicator3-dev libxdo-dev
+
+      - name: Setup Rust
+        run: rustup toolchain install
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Lint and build
+        run: |
+          mkdir -p public/pkg
+          cargo clippy -p scrov-desktop -- -D warnings
+
+  nx:
+    name: Nx workspace
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/nx
+    env:
+      NX_DAEMON: "false"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,5 +140,53 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Run validation (build, typecheck, tests)
-        run: bun run check
+      - name: Build, lint and test
+        run: bunx nx run-many -t build lint test
+
+  angular-webmcp:
+    name: Angular WebMCP app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/angular/webmcp
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bunx ng lint
+
+      - name: Test
+        run: bunx ng test --watch=false
+
+      - name: Build
+        run: bunx ng build
+
+  angular-webmcp-example:
+    name: Angular WebMCP example
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/angular/webmcp-example
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bunx ng build

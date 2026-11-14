@@ -1,6 +1,5 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, declareExperimentalWebMcpTool } from '@angular/core';
 import { httpResource } from '@angular/common/http';
-import { declareWebMcpTool } from '@mcp-b/webmcp'; 
 
 export interface CartPizzeria {
   id: string;
@@ -82,7 +81,7 @@ export class CartStore {
   public readonly isEmpty = computed<boolean>(() => this.items().length === 0);
 
   public constructor() {
-    declareWebMcpTool({
+    declareExperimentalWebMcpTool({
       name: 'get_cart',
       description:
         'Returns the current contents of the shopping cart, including the pizzeria, each ' +
@@ -119,7 +118,7 @@ export class CartStore {
       },
     });
 
-    declareWebMcpTool({
+    declareExperimentalWebMcpTool({
       name: 'add_pizza_to_cart',
       description:
         'Adds a pizza to the shopping cart. pizzaId, selectedSizeId, and selectedOptionIds ' +
@@ -184,7 +183,7 @@ export class CartStore {
       },
     });
 
-    declareWebMcpTool({
+    declareExperimentalWebMcpTool({
       name: 'update_cart_item_quantity',
       description:
         'Changes the quantity of an existing cart item. Use quantity 0 to remove it. Item ' +
@@ -237,7 +236,7 @@ export class CartStore {
       },
     });
 
-    declareWebMcpTool({
+    declareExperimentalWebMcpTool({
       name: 'remove_cart_item',
       description: 'Removes an item from the shopping cart entirely. Item IDs come from get_cart.',
       inputSchema: {
@@ -260,7 +259,7 @@ export class CartStore {
       },
     });
 
-    declareWebMcpTool({
+    declareExperimentalWebMcpTool({
       name: 'clear_cart',
       description: 'Empties the shopping cart completely.',
       inputSchema: { type: 'object', properties: {} },

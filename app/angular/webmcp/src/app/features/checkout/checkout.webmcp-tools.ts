@@ -1,10 +1,9 @@
-import { EnvironmentProviders, inject } from '@angular/core';
+import { EnvironmentProviders, inject, provideExperimentalWebMcpTools } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CartStore } from '../cart/cart.store';
 import { OrderApi } from '../orders/order-api';
 import type { WebMcpToolResult } from '../../shared/models/webmcp-tool-result.model';
-import { provideWebMcpTools } from '@mcp-b/webmcp';
 /**
  * WebMCP tools registered on the checkout route (`checkout.routes.ts`).
  *
@@ -14,7 +13,7 @@ import { provideWebMcpTools } from '@mcp-b/webmcp';
  * navigated here.
  */
 export const checkoutWebMcpTools: EnvironmentProviders[] = [
-  provideWebMcpTools([
+  provideExperimentalWebMcpTools([
     {
       name: 'place_order',
       description:

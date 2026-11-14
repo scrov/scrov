@@ -1,0 +1,84 @@
+/* Design tokens for /platform — see DESIGN.md. Pages use these names, never raw values. */
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/inter-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark light;
+
+  --bg: #08090b;
+  --surface: #0e1014;
+  --surface-2: #14171c;
+  --border: #23272e;
+  --border-strong: #343a44;
+  --text: #e6e8eb;
+  --text-muted: #a0a6b0;
+  --text-subtle: #8a909c;
+  --primary: #1793d1;
+  --primary-hover: #3aa6de;
+  --on-primary: #08090b;
+  --link: #7eb8d8;
+  --accent: #e0a050;
+  --success: #4fb58a;
+  --warning: #f5c451;
+  --error: #f26d6d;
+  --shadow-1: none;
+
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --fs-label: 13px;  --lh-label: 18px;
+  --fs-sm: 15px;     --lh-sm: 24px;
+  --fs-body: 17px;   --lh-body: 28px;
+  --fs-lead: 20px;   --lh-lead: 30px;
+  --fs-h3: 22px;     --lh-h3: 30px;
+  --fs-h2: clamp(28px, 4vw, 40px);
+  --fs-h1: clamp(36px, 5.2vw, 56px);
+
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px;
+  --s-6: 32px; --s-7: 48px; --s-8: 64px; --s-9: 96px; --s-10: 128px;
+
+  --content: 1200px;
+  --prose: 68ch;
+  --gutter: var(--s-5);
+  --section: var(--s-9);
+
+  --r-sm: 6px; --r-md: 10px; --r-lg: 16px; --r-pill: 999px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-2: #eef0f3;
+    --border: #dde1e6;
+    --border-strong: #c4cad2;
+    --text: #0e1116;
+    --text-muted: #4a515c;
+    --text-subtle: #5e6672;
+    --primary: #0b6fa4;
+    --primary-hover: #095d8a;
+    --on-primary: #ffffff;
+    --link: #0b6fa4;
+    --accent: #985a0c;
+    --success: #1f7a52;
+    --warning: #8a6100;
+    --error: #b42323;
+    --shadow-1: 0 1px 2px rgba(14, 17, 22, 0.06), 0 4px 16px rgba(14, 17, 22, 0.06);
+  }
+}
+
+@media (max-width: 720px) {
+  :root { --gutter: var(--s-4); --section: var(--s-8); }
+}

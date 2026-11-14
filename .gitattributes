@@ -1,0 +1,3 @@
+# Build outputs, committed so that deploys do not compile Rust. See prebuilt/README.md.
+prebuilt/worker/** linguist-generated=true -diff
+prebuilt/client/** linguist-generated=true -diff

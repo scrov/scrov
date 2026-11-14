@@ -1,0 +1,3 @@
+[test]
+# Only the site's own tests. The projects under app/ have their own runners.
+root = "./scripts"

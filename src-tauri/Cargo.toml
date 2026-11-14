@@ -1,0 +1,18 @@
+[package]
+name = "scrov-desktop"
+description = "Desktop shell for the scrov site: Tauri with the SSR server embedded."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "scrov_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+scrov-server = { path = "../crates/server" }
+tauri = { version = "2", features = [] }
+tokio = { version = "1", features = ["net", "time"] }
