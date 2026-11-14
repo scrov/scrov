@@ -50,4 +50,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update cached project metadata [skip ci]"
-          file_pattern: "content/config.json .cache/sync.json prebuilt"
+          file_pattern: "content/config.json prebuilt"
