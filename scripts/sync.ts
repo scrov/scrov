@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Build src/config.json from src/data.yml + src/systems.yml + GitHub project metadata.
+ * Build content/config.json from content/data.yml + content/systems.yml + GitHub project metadata.
  *
  * - data.yml and systems.yml are the sources of truth (manual config).
  * - Each project URL is fetched from GitHub; existing entries are refreshed,
@@ -34,9 +34,9 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const CONFIG_PATH = resolve(ROOT, "src/config.json");
-const DATA_PATH = resolve(ROOT, "src/data.yml");
-const SYSTEMS_PATH = resolve(ROOT, "src/systems.yml");
+const CONFIG_PATH = resolve(ROOT, "content/config.json");
+const DATA_PATH = resolve(ROOT, "content/data.yml");
+const SYSTEMS_PATH = resolve(ROOT, "content/systems.yml");
 const CACHE_PATH = resolve(ROOT, ".cache/sync.json");
 
 const DEFAULT_TTL_MS = 60 * 60 * 1000; // 1 hour

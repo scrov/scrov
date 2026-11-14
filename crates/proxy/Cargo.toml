@@ -1,0 +1,12 @@
+[package]
+name = "scrov-proxy"
+description = "Pingora reverse proxy in front of the native scrov server, for self-hosting."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+scrov-server = { path = "../server" }
+pingora = { version = "0.9", default-features = false, features = ["proxy"] }
+async-trait = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread", "net"] }

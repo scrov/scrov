@@ -1,0 +1,11 @@
+# Headers for the static files in this directory. Pages, feeds and fragments
+# are rendered by the Worker, which sets its own headers (crates/app/src/lib.rs).
+
+/vendor/*
+  Cache-Control: public, max-age=86400
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/pkg/*
+  Cache-Control: public, max-age=300

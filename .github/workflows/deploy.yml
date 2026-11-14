@@ -18,21 +18,46 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Cloudflare's Git integration (Workers Builds) already deploys every
+      # push to main. This job is a second path that only runs when the
+      # repository has its own Cloudflare credentials.
+      - name: Check for Cloudflare credentials
+        id: credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping wrangler deploy: the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets are not set. Cloudflare Workers Builds deploys this push."
+          fi
+
       - name: Setup Bun
+        if: steps.credentials.outputs.present == 'true'
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      # Installs the toolchain, components and targets from rust-toolchain.toml.
+      - name: Setup Rust
+        if: steps.credentials.outputs.present == 'true'
+        run: rustup toolchain install
+
+      - name: Cache Cargo
+        if: steps.credentials.outputs.present == 'true'
+        uses: Swatinem/rust-cache@v2
+
       - name: Install dependencies
+        if: steps.credentials.outputs.present == 'true'
         run: bun install --frozen-lockfile
 
-      - name: Build Astro
-        run: bun run build
-
-      - name: Deploy to Cloudflare Workers / Assets
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # `wrangler deploy` runs the [build] command in wrangler.toml, which
+      # prepares public/ and compiles the Worker.
+      - name: Deploy to Cloudflare Workers
+        if: steps.credentials.outputs.present == 'true'
+        run: bunx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
