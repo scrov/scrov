@@ -47,7 +47,7 @@ jobs:
         run: bun run update-prebuilt -- --if-stale
 
       - name: Commit changes if updated
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore: update cached project metadata [skip ci]"
           file_pattern: "content/config.json .cache/sync.json prebuilt"
