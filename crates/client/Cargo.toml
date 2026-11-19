@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 leptos = { workspace = true, features = ["csr"] }
 # The package is `webmcp-rs`; its library is named `webmcp`.
-webmcp-rs = { version = "0.3", features = ["leptos"] }
+webmcp-rs = { version = "0.4", features = ["leptos"] }
 schemars = "1"
 serde.workspace = true
 serde_json.workspace = true

@@ -6130,9 +6130,9 @@ dependencies = [
 
 [[package]]
 name = "webmcp-rs"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41408c846b61d7f04452d9a82b7dfcddff3a261ec8811d363715c19ec5c88ef0"
+checksum = "eeb41540c5b749afcb3c59007163b81922f5983467b1b668eae7447dcf863d7d"
 dependencies = [
  "js-sys",
  "leptos",
